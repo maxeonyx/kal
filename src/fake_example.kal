@@ -1,0 +1,9 @@
+Input;
+
+Print (True and False);
+
+Print False;
+
+Print (True and (True or False));
+
+False

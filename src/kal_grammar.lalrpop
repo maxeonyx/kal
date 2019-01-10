@@ -1,0 +1,21 @@
+use crate::ast::*;
+
+grammar;
+
+pub Function_Body: (Vec<Statement>, Expression) = {
+
+	<statements:(<Statement> ";")*> <expr:Expression> => (statements, expr)
+
+};
+
+Statement: Statement = {
+    "Input" => Statement::Input,
+    "Print" <e:Expression> => Statement::Print(Box::new(e)),
+}
+
+Expression: Expression = {
+    "True" => Expression::True,
+    "False" => Expression::False,
+    "(" <e1:Expression> "and" <e2:Expression> ")" => Expression::And(Box::new(e1), Box::new(e2)),
+    "(" <e1:Expression> "or" <e2:Expression> ")" => Expression::Or(Box::new(e1), Box::new(e2)),
+}
