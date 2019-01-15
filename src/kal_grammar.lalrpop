@@ -1,21 +1,94 @@
 use crate::ast::*;
+use std::collections::HashMap;
+use std::str::FromStr;
 
 grammar;
 
-pub Function_Body: (Vec<Statement>, Expression) = {
+// Macro for making comma-separated lists of anything
+Comma<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
+};
 
-	<statements:(<Statement> ";")*> <expr:Expression> => (statements, expr)
+Block: Block = {
+
+	"{" <b:BlockInner> "}" => b,
 
 };
 
-Statement: Statement = {
-    "Input" => Statement::Input,
-    "Print" <e:Expression> => Statement::Print(Box::new(e)),
+pub BlockInner: Block = {
+    <v:(<Expression> ";")*> <e:Expression> => {
+        let mut v = v;
+        v.push(e);
+        Block(v)
+    }
 }
 
 Expression: Expression = {
-    "True" => Expression::True,
-    "False" => Expression::False,
-    "(" <e1:Expression> "and" <e2:Expression> ")" => Expression::And(Box::new(e1), Box::new(e2)),
-    "(" <e1:Expression> "or" <e2:Expression> ")" => Expression::Or(Box::new(e1), Box::new(e2)),
+    <l:Literal> => Expression::Literal(Box::new(l)),
+    <le:LetExpression> => Expression::Let(Box::new(le)),
+    <ie:IfExpression> => Expression::If(Box::new(ie)),
+    <fi:FunctionInvocation> => Expression::FunctionInvocation(Box::new(fi)),
+}
+
+LetExpression: LetExpression = {
+    "let" <i:Ident> "=" <e:Expression> => LetExpression(Box::new(i), Box::new(e)),
+}
+
+IfExpression: IfExpression = {
+    "if" <c:Expression> <b:Block> => IfExpression(Box::new(c), Box::new(b)),
+}
+
+FunctionInvocation: FunctionInvocation = {
+    <i:Ident> "(" <v:Comma<Expression>> ")" => FunctionInvocation(Box::new(i), v),
+}
+
+Literal: Literal = {
+    "null" => Literal::Null,
+    "true" => Literal::Bool(true),
+    "false" => Literal::Bool(false),
+    <n:Int> => Literal::Int(n),
+    //<s:Str> => Literal::String(s),
+    <l:List> => Literal::List(Box::new(l)),
+    <o:Object> => Literal::Object(Box::new(o)),
+    <f:Function> => Literal::Function(Box::new(f)),
+}
+
+List: List = {
+    "[" <v:Comma<Expression>> "]" => List(v),
+}
+
+Object: Object = {
+    "{" <v:Comma<ObjectKV>> "}" => {
+        let mut h = HashMap::new();
+        for (i, e) in v {
+            h.insert(i, e);
+        }
+        Object(h)
+    }
+}
+
+ObjectKV: (Ident, Expression) = {
+    <i:Ident> ":" <e:Expression> => (i, e),
+}
+
+Function: Function = {
+    "fn" "(" <p:Comma<Ident>> ")" <b:Block> => Function {
+        parameters: p,
+        body: b,
+    }
+}
+
+Ident: Ident = {
+    <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> => Ident(s.to_owned()),
+}
+
+Int: i64 = {
+    <i:r"0|(?:[1-9][0-9]){19}"> => i64::from_str(<>).unwrap(),
 }

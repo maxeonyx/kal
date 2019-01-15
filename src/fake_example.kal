@@ -1,9 +1,5 @@
-Input;
+let x = true;
 
-Print (True and False);
+x();
 
-Print False;
-
-Print (True and (True or False));
-
-False
+true
