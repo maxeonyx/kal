@@ -1,0 +1,3 @@
+*.kal linguist-detectable=true
+*.kal linguist-language=Rust
+*.lalrpop linguist-language=Rust
