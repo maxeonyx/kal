@@ -2,17 +2,23 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum Expression {
-	Literal(Box<Literal>),
-	FunctionInvocation(Box<FunctionInvocation>),
-	Let(Box<LetExpression>),
-	If(Box<IfExpression>),
+	Literal(Literal),
+	FunctionInvocation(FunctionInvocation),
+	Let(LetExpression),
+	If(IfExpression),
 }
 
 #[derive(Debug)]
-pub struct LetExpression(pub Box<Ident>, pub Box<Expression>);
+pub struct LetExpression {
+	pub variable: Ident,
+	pub expr: Box<Expression>,
+}
 
 #[derive(Debug)]
-pub struct IfExpression(pub Box<Expression>, pub Box<Block>);
+pub struct IfExpression {
+	pub expr: Box<Expression>,
+	pub body: Block,
+}
 
 #[derive(Debug)]
 pub enum Literal {
@@ -20,9 +26,9 @@ pub enum Literal {
 	Bool(bool),
 	Int(i64),
 	String(String),
-	Object(Box<Object>),
-	List(Box<List>),
-	Function(Box<Function>),
+	Object(Object),
+	List(List),
+	Function(Function),
 }
 
 #[derive(Debug)]
@@ -32,16 +38,27 @@ pub struct Function {
 }
 
 #[derive(Debug)]
-pub struct Block(pub Vec<Expression>);
+pub struct Block {
+	pub expressions: Vec<Expression>,
+}
 
 #[derive(Debug)]
-pub struct FunctionInvocation(pub Box<Ident>, pub Vec<Expression>);
+pub struct FunctionInvocation {
+	pub name: Ident,
+	pub parameters: Vec<Expression>,
+}
 
 #[derive(Debug)]
-pub struct Object(pub HashMap<Ident, Expression>);
+pub struct Object {
+	pub map: HashMap<Ident, Expression>,
+}
 
 #[derive(Debug)]
-pub struct List(pub Vec<Expression>);
+pub struct List {
+	pub elements: Vec<Expression>,
+}
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub struct Ident(pub String);
+pub struct Ident {
+	pub name: String,
+}

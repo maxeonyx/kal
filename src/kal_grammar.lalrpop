@@ -12,41 +12,64 @@ Comma<T>: Vec<T> = {
             let mut v = v;
             v.push(e);
             v
-        }
-    }
+        },
+    },
 };
 
 Block: Block = {
-
 	"{" <b:BlockInner> "}" => b,
-
 };
 
+// kal files are "block inners".
+// Essentially they are zero parameter functions
 pub BlockInner: Block = {
+    // allow empty files/functions/blocks
+    => {
+        Block {
+            expressions: Vec::new(),
+        }
+    },
     <v:(<Expression> ";")*> <e:Expression> => {
         let mut v = v;
         v.push(e);
-        Block(v)
+        Block {
+            expressions: v,
+        }
     }
 }
 
 Expression: Expression = {
-    <l:Literal> => Expression::Literal(Box::new(l)),
-    <le:LetExpression> => Expression::Let(Box::new(le)),
-    <ie:IfExpression> => Expression::If(Box::new(ie)),
-    <fi:FunctionInvocation> => Expression::FunctionInvocation(Box::new(fi)),
+    <l:Literal> => Expression::Literal(l),
+    <le:LetExpression> => Expression::Let(le),
+    <ie:IfExpression> => Expression::If(ie),
+    <fi:FunctionInvocation> => Expression::FunctionInvocation(fi),
 }
 
 LetExpression: LetExpression = {
-    "let" <i:Ident> "=" <e:Expression> => LetExpression(Box::new(i), Box::new(e)),
+    "let" <i:Ident> "=" <e:Expression> =>
+    
+    LetExpression {
+        variable: i,
+        expr: Box::new(e),
+    },
 }
 
 IfExpression: IfExpression = {
-    "if" <c:Expression> <b:Block> => IfExpression(Box::new(c), Box::new(b)),
+    "if" <c:Expression> <b:Block> =>
+    
+    IfExpression {
+        expr: Box::new(c),
+        body: b,
+    },
 }
 
 FunctionInvocation: FunctionInvocation = {
-    <i:Ident> "(" <v:Comma<Expression>> ")" => FunctionInvocation(Box::new(i), v),
+    <i:Ident> "(" <v:Comma<Expression>> ")" => 
+    
+    FunctionInvocation {
+        name: i,
+        parameters: v,
+    },
 }
 
 Literal: Literal = {
@@ -55,23 +78,32 @@ Literal: Literal = {
     "false" => Literal::Bool(false),
     <n:Int> => Literal::Int(n),
     //<s:Str> => Literal::String(s),
-    <l:List> => Literal::List(Box::new(l)),
-    <o:Object> => Literal::Object(Box::new(o)),
-    <f:Function> => Literal::Function(Box::new(f)),
+    <l:List> => Literal::List(l),
+    <o:Object> => Literal::Object(o),
+    <f:Function> => Literal::Function(f),
 }
 
 List: List = {
-    "[" <v:Comma<Expression>> "]" => List(v),
+    "[" <v:Comma<Expression>> "]" =>
+    
+    List {
+        elements: v,
+    },
 }
 
 Object: Object = {
-    "{" <v:Comma<ObjectKV>> "}" => {
+    "{" <v:Comma<ObjectKV>> "}" =>
+    
+    {
         let mut h = HashMap::new();
         for (i, e) in v {
             h.insert(i, e);
         }
-        Object(h)
-    }
+
+        Object {
+            map: h,
+        }
+    },
 }
 
 ObjectKV: (Ident, Expression) = {
@@ -79,16 +111,23 @@ ObjectKV: (Ident, Expression) = {
 }
 
 Function: Function = {
-    "fn" "(" <p:Comma<Ident>> ")" <b:Block> => Function {
+    "fn" "(" <p:Comma<Ident>> ")" <b:Block> =>
+    
+    Function {
         parameters: p,
         body: b,
-    }
+    },
 }
 
 Ident: Ident = {
-    <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> => Ident(s.to_owned()),
+    <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> =>
+    
+    Ident {
+        name: s.to_owned(),
+    },
 }
 
 Int: i64 = {
-    <i:r"0|(?:[1-9][0-9]){19}"> => i64::from_str(<>).unwrap(),
+    // `unwrap` is okay because regex is limited to valid i64
+    <i:r"0|(?:[1-9][0-9]){0,19}"> => i64::from_str(<>).unwrap(),
 }

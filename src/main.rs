@@ -3,6 +3,9 @@ extern crate lalrpop_util;
 
 pub mod ast;
 lalrpop_mod!(pub kal_grammar);
+pub mod interpreter;
+
+mod tests;
 
 fn main() {
     println!(
