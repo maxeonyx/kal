@@ -1,6 +1,6 @@
 # kal
 
-Kal is my idea for a simple dynamically typed language similar to Javascript or Lua
+the kal language is my idea for a simple dynamically typed language similar to Javascript or Lua
 
 I am drawing syntax mainly from modern JS and Rust. But I would ideally like the language to be
 able to be syntax-agnostic. This would mean providing a stable API for the AST. A future project might be implementing a visual scripting language on top of that. 
