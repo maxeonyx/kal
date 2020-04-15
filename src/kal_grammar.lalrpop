@@ -38,16 +38,69 @@ pub BlockInner: Block = {
     }
 }
 
+// Function literal is here for operator precedence.
 Expression: Expression = {
-    <l:Literal> => Expression::Literal(l),
+    <fl:FunctionLiteral> => Expression::Literal(Literal::Function(fl)),
     <le:LetExpression> => Expression::Let(le),
+    AddExpression,
+}
+
+AddExpression: Expression = {
+    <l:AddExpression> "+" <r:MultiplyExpression> =>
+        Expression::Add(AddExpression {
+            left: Box::new(l),
+            right: Box::new(r)
+        }),
+    <l:AddExpression> "-" <r:MultiplyExpression> =>
+        Expression::Subtract(SubtractExpression {
+            left: Box::new(l),
+            right: Box::new(r)
+        }),
+    MultiplyExpression,
+}
+
+MultiplyExpression: Expression = {
+    <l:MultiplyExpression> "*" <r:NormalExpression> =>
+    Expression::Multiply(MultiplyExpression {
+        left: Box::new(l),
+        right: Box::new(r),
+    }),
+    NormalExpression,
+}
+
+NormalExpression: Expression = {
+    <l:Literal> => Expression::Literal(l),
     <ie:IfExpression> => Expression::If(ie),
+    SimpleExpression,
+}
+
+SimpleExpression: Expression = {
+    <i:Ident> => Expression::Ident(i),
     <fi:FunctionInvocation> => Expression::FunctionInvocation(fi),
+    <pe:ParenExpression> => pe,
+}
+
+ParenExpression: Expression = {
+    "(" <e:Expression> ")" => e,
+}
+
+FunctionLiteral: Function = {
+    "fn" "(" <p:Comma<Ident>> ")" <b:FunctionBody> =>
+    Function {
+        parameters: p,
+        body: b,
+    },
+}
+
+FunctionBody: Block = {
+    <e: Expression> => Block {
+        expressions: vec![e],
+    },
+    <b: Block> => b,
 }
 
 LetExpression: LetExpression = {
     "let" <i:Ident> "=" <e:Expression> =>
-    
     LetExpression {
         variable: i,
         expr: Box::new(e),
@@ -55,19 +108,24 @@ LetExpression: LetExpression = {
 }
 
 IfExpression: IfExpression = {
-    "if" <c:Expression> <b:Block> =>
+    "if" <c:Expression> <b:Block> <eb:ElseBody?> =>
     
     IfExpression {
         expr: Box::new(c),
         body: b,
+        else_body: eb
     },
 }
 
+ElseBody: Block = {
+    "else" <b:Block> => b,
+}
+
 FunctionInvocation: FunctionInvocation = {
-    <i:Ident> "(" <v:Comma<Expression>> ")" => 
+    <se:SimpleExpression> "(" <v:Comma<Expression>> ")" => 
     
     FunctionInvocation {
-        name: i,
+        closure_expression: Box::new(se),
         parameters: v,
     },
 }
@@ -78,9 +136,8 @@ Literal: Literal = {
     "false" => Literal::Bool(false),
     <n:Int> => Literal::Int(n),
     //<s:Str> => Literal::String(s),
-    <l:List> => Literal::List(l),
-    <o:Object> => Literal::Object(o),
-    <f:Function> => Literal::Function(f),
+    //<l:List> => Literal::List(l),
+    //<o:Object> => Literal::Object(o),
 }
 
 List: List = {
@@ -110,15 +167,6 @@ ObjectKV: (Ident, Expression) = {
     <i:Ident> ":" <e:Expression> => (i, e),
 }
 
-Function: Function = {
-    "fn" "(" <p:Comma<Ident>> ")" <b:Block> =>
-    
-    Function {
-        parameters: p,
-        body: b,
-    },
-}
-
 Ident: Ident = {
     <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> =>
     
@@ -128,6 +176,6 @@ Ident: Ident = {
 }
 
 Int: i64 = {
-    // `unwrap` is okay because regex is limited to valid i64
-    <i:r"0|(?:[1-9][0-9]){0,19}"> => i64::from_str(<>).unwrap(),
+    // `unwrap` todo convert to fallible operation (e.g. Int or TooLong)
+    <i:r"0|(?:[1-9][0-9]*)"> => i64::from_str(<>).unwrap(),
 }
