@@ -1,82 +1,174 @@
 use crate::ast::{
-    AddExpression, Block, Expression, FunctionInvocation, Ident, LetExpression, Literal,
+    AddExpression, Block, Expression, FunctionInvocation, Ident, LetStatement, Literal, Statement,
 };
 
 pub mod types {
+    use crate::ast::Function;
+    use gc::{custom_trace, Finalize, Gc};
+    use gc_derive::Trace;
     use std::collections::HashMap;
 
-    #[derive(Debug, Clone, PartialEq)]
-    pub enum Value<'ast> {
+    #[derive(Debug, Clone, PartialEq, Trace)]
+    pub enum Value {
         Null,
         Bool(bool),
         Str(String),
         Int(i64),
-        List(Vec<Value<'ast>>),
-        Object(Object<'ast>),
-        Closure(Closure<'ast>),
+        List(Vec<Value>),
+        Object(Object),
+        Closure(Closure),
+    }
+
+    impl Finalize for Value {
+        fn finalize(&self) {}
     }
 
     // TODO: not really a closure yet. Doesn't capture lexical scope
-    #[derive(Debug, Clone)]
-    pub struct Closure<'ast> {
-        pub code: &'ast crate::ast::Function,
+    #[derive(Debug, Clone, Trace)]
+    pub struct Closure {
+        pub code: &'static Function,
+        pub parent_ctx: Gc<Context>,
     }
 
-    impl<'ast> PartialEq for Closure<'ast> {
-        fn eq(&self, _other: &Closure<'ast>) -> bool {
+    impl Finalize for Closure {
+        fn finalize(&self) {}
+    }
+
+    impl Closure {
+        pub fn new(code: &'static Function, parent_ctx: Gc<Context>) -> Self {
+            Closure {
+                code: code,
+                parent_ctx,
+            }
+        }
+    }
+
+    impl PartialEq for Closure {
+        fn eq(&self, _other: &Closure) -> bool {
             false
         }
     }
 
     #[derive(Debug, Clone, PartialEq)]
-    pub struct Object<'ast> {
-        pub inner: HashMap<String, Value<'ast>>,
+    pub struct Object {
+        inner: HashMap<String, Value>,
     }
 
-    impl<'ast> Object<'ast> {
+    unsafe impl gc::Trace for Object {
+        custom_trace!(this, {
+            for val in this.inner.values() {
+                mark(val);
+            }
+        });
+    }
+
+    impl Finalize for Object {
+        fn finalize(&self) {}
+    }
+
+    impl Object {
         pub fn new() -> Self {
             Object {
                 inner: HashMap::new(),
             }
         }
+
+        pub fn add_binding(&mut self, k: String, v: Value) {
+            self.inner.insert(k, v);
+        }
+
+        pub fn remove_binding(&mut self, k: String) {
+            self.inner.remove(&k);
+        }
     }
-}
 
-use self::types::*;
+    #[derive(Debug, Clone, PartialEq, Trace)]
+    pub struct Context {
+        parent: Option<Gc<Context>>,
+        scope: Object,
+    }
 
-pub struct Context<'ast> {
-    pub scopes: Vec<Object<'ast>>,
-}
+    impl Finalize for Context {
+        fn finalize(&self) {}
+    }
 
-impl<'ast> Context<'ast> {
-    pub fn new() -> Self {
-        Context {
-            scopes: vec![Object::new()],
+    impl Context {
+        pub fn new() -> Self {
+            Context {
+                parent: None,
+                scope: Object::new(),
+            }
+        }
+
+        pub fn extend(ctx: Gc<Self>) -> Self {
+            Context {
+                parent: Some(ctx),
+                scope: Object::new(),
+            }
+        }
+
+        pub fn pop_scope(self) {}
+
+        pub fn add_binding(&mut self, k: String, v: Value) {
+            self.scope.add_binding(k, v);
+        }
+
+        pub fn remove_binding(&mut self, k: String) {
+            self.scope.remove_binding(k);
+        }
+
+        pub fn current_scope(&self) -> &Object {
+            // unwrap ok because we never remove all scopes
+            &self.scope
+        }
+
+        pub fn resolve_name(&self, name: &str) -> Value {
+            let mut ctx = self;
+            loop {
+                if ctx.current_scope().inner.contains_key(name) {
+                    return ctx.current_scope().inner.get(name).unwrap().clone();
+                }
+                if let Some(ref parent) = ctx.parent {
+                    ctx = parent;
+                } else {
+                    break;
+                }
+            }
+            panic!("Could not resolve name {:?}", name);
         }
     }
 }
 
-pub fn eval<'ast>(ast: &'ast Block) -> Value<'ast> {
-    let mut ctx = Context::new();
+use self::types::*;
+use gc::Gc;
 
-    eval_block(&mut ctx, ast)
+pub fn eval(ast: &'static Block) -> Value {
+    let ctx = Gc::new(Context::new());
+
+    eval_block(ctx, ast)
 }
 
-fn eval_block<'ast>(ctx: &mut Context<'ast>, block: &'ast Block) -> Value<'ast> {
-    ctx.scopes.push(Object::new());
+fn eval_block(ctx: Gc<Context>, block: &'static Block) -> Value {
+    let mut ctx = Context::extend(ctx);
+    for statement in block.statements.iter() {
+        match statement {
+            Statement::Let(let_statement) => {
+                let LetStatement { variable, expr } = let_statement;
+                let ctx_before_let = Gc::new(ctx);
+                let value = eval_expression(ctx_before_let.clone(), expr);
 
-    let mut last_val = Value::Null;
-    for expr in block.expressions.iter() {
-        last_val = eval_expression(ctx, expr);
+                ctx = Context::extend(ctx_before_let);
+                ctx.add_binding(variable.name.clone(), value.clone());
+            }
+        }
     }
 
-    last_val
+    eval_expression(Gc::new(ctx), &block.expression)
 }
 
-fn eval_expression<'ast>(ctx: &mut Context<'ast>, expr: &'ast Expression) -> Value<'ast> {
+fn eval_expression(ctx: Gc<Context>, expr: &'static Expression) -> Value {
     match expr {
-        Expression::Let(expr) => assign_var(ctx, expr),
-        Expression::Literal(literal) => eval_literal(literal),
+        Expression::Literal(literal) => eval_literal(ctx, literal),
         Expression::FunctionInvocation(func_invo) => eval_function_invocation(ctx, func_invo),
         Expression::Add(add_expr) => eval_add(ctx, add_expr),
         Expression::Ident(ident) => eval_ident(ctx, ident),
@@ -84,14 +176,14 @@ fn eval_expression<'ast>(ctx: &mut Context<'ast>, expr: &'ast Expression) -> Val
     }
 }
 
-fn eval_ident<'ast>(ctx: &mut Context<'ast>, ident: &'ast Ident) -> Value<'ast> {
-    resolve_name(ctx, &ident.name)
+fn eval_ident(ctx: Gc<Context>, ident: &Ident) -> Value {
+    ctx.resolve_name(&ident.name)
 }
 
-fn eval_add<'ast>(ctx: &mut Context<'ast>, expr: &'ast AddExpression) -> Value<'ast> {
+fn eval_add(ctx: Gc<Context>, expr: &'static AddExpression) -> Value {
     let AddExpression { left, right } = expr;
-    let left = eval_expression(ctx, left);
-    let right = eval_expression(ctx, right);
+    let left = eval_expression(ctx.clone(), left);
+    let right = eval_expression(ctx.clone(), right);
     let left = match left {
         Value::Int(i) => i,
         _ => panic!("Cant add, left side not an Int: {:?}.", expr),
@@ -103,71 +195,44 @@ fn eval_add<'ast>(ctx: &mut Context<'ast>, expr: &'ast AddExpression) -> Value<'
     Value::Int(left + right)
 }
 
-fn resolve_name<'ast>(ctx: &mut Context<'ast>, name: &str) -> Value<'ast> {
-    for scope in ctx.scopes.iter().rev() {
-        if scope.inner.contains_key(name) {
-            // TODO: Garbage collection means we won't have to clone
-            return scope.inner.get(name).unwrap().clone();
-        }
-    }
-    println!("    =================    ");
-    println!("{:?}", ctx.scopes);
-    panic!("Could not resolve name {:?}", name);
-}
+fn eval_function_invocation(ctx: Gc<Context>, invocation: &'static FunctionInvocation) -> Value {
+    let val = eval_expression(ctx.clone(), &invocation.closure_expression);
 
-fn eval_function_invocation<'ast>(
-    ctx: &mut Context<'ast>,
-    invocation: &'ast FunctionInvocation,
-) -> Value<'ast> {
-    let name = eval_expression(ctx, &invocation.closure_expression);
-    let closure = match name {
-        Value::Closure(c) => c,
+    match val {
+        Value::Closure(ref closure) => {
+            // TODO: TBC if I will allow function overloading, or dynamic parameter lists like JS
+            // For now required to be the same
+            assert!(
+                closure.code.parameters.len() == invocation.parameters.len(),
+                "must have the same number of parameters"
+            );
+            let mut params = Vec::with_capacity(invocation.parameters.len());
+            for i in 0..invocation.parameters.len() {
+                let expression = &invocation.parameters[i];
+                let val = eval_expression(ctx.clone(), expression);
+                params.push(val);
+            }
+
+            let mut closure_ctx = Context::extend(closure.parent_ctx.clone());
+            for (i, val) in params.into_iter().enumerate() {
+                let name = &closure.code.parameters[i].name;
+                closure_ctx.add_binding(name.to_owned(), val);
+            }
+
+            eval_block(Gc::new(closure_ctx), &closure.code.body)
+        }
         _ => panic!(
             "could not call, the following expression is not a function {:?}",
             &invocation.closure_expression
         ),
-    };
-
-    let mut closure_ctx = Context::new();
-    let scope = closure_ctx.scopes.last_mut().unwrap();
-    // TODO: TBC if I will allow function overloading, or dynamic parameter lists like JS
-    // For now required to be the same
-    assert!(
-        closure.code.parameters.len() == invocation.parameters.len(),
-        "must have the same number of parameters"
-    );
-    for i in 0..invocation.parameters.len() {
-        let expression = &invocation.parameters[i];
-        let name = &closure.code.parameters[i].name;
-        let val = eval_expression(ctx, expression);
-        scope.inner.insert(name.to_owned(), val);
     }
-
-    eval_block(&mut closure_ctx, &closure.code.body)
 }
 
-fn eval_literal(literal: &Literal) -> Value {
+fn eval_literal(ctx: Gc<Context>, literal: &'static Literal) -> Value {
     match literal {
+        Literal::Null => Value::Null,
         Literal::Int(num) => Value::Int(*num),
-        Literal::Function(func) => Value::Closure(Closure { code: &func }),
+        Literal::Function(func) => Value::Closure(Closure::new(&func, ctx.clone())),
         _ => unimplemented!("Literal type {:?}.", literal),
     }
-}
-
-// `let` expressions return a value and so be chained.
-// `let x = let y = 42;` will assign both x and y to 42.
-fn assign_var<'ast>(ctx: &mut Context<'ast>, expr: &'ast LetExpression) -> Value<'ast> {
-    let LetExpression { variable, expr } = expr;
-
-    let value = eval_expression(ctx, expr);
-
-    // `unwrap` is OK because context always has at least one scope object
-    let current_scope_object = ctx.scopes.last_mut().unwrap();
-
-    current_scope_object
-        .inner
-        // TODO: Garbage collection means we won't have to clone
-        .insert(variable.name.clone(), value.clone());
-
-    value
 }

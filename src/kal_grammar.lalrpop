@@ -17,7 +17,7 @@ Comma<T>: Vec<T> = {
 };
 
 Block: Block = {
-	"{" <b:BlockInner> "}" => b,
+	"{" <b:BlockInnerNotEmpty> "}" => b,
 };
 
 // kal files are "block inners".
@@ -26,22 +26,35 @@ pub BlockInner: Block = {
     // allow empty files/functions/blocks
     => {
         Block {
-            expressions: Vec::new(),
+            statements: Vec::new(),
+            expression: Box::new(Expression::Literal(Literal::Null)),
         }
     },
-    <v:(<Expression> ";")*> <e:Expression> => {
-        let mut v = v;
-        v.push(e);
+    <v:(<Statement> ";")*> <e:Expression> => {
         Block {
-            expressions: v,
+            statements: v,
+            expression: Box::new(e),
         }
     }
+}
+
+// Blocks do not allow the block to be empty. This means that curly braces are empty objects instead.
+pub BlockInnerNotEmpty: Block = {
+    <v:(<Statement> ";")*> <e:Expression> => {
+        Block {
+            statements: v,
+            expression: Box::new(e),
+        }
+    }
+}
+
+Statement: Statement = {
+    <le:LetStatement> => Statement::Let(le),
 }
 
 // Function literal is here for operator precedence.
 Expression: Expression = {
     <fl:FunctionLiteral> => Expression::Literal(Literal::Function(fl)),
-    <le:LetExpression> => Expression::Let(le),
     AddExpression,
 }
 
@@ -94,14 +107,15 @@ FunctionLiteral: Function = {
 
 FunctionBody: Block = {
     <e: Expression> => Block {
-        expressions: vec![e],
+        statements: Vec::new(),
+        expression: Box::new(e),
     },
     <b: Block> => b,
 }
 
-LetExpression: LetExpression = {
+LetStatement: LetStatement = {
     "let" <i:Ident> "=" <e:Expression> =>
-    LetExpression {
+    LetStatement {
         variable: i,
         expr: Box::new(e),
     },
@@ -137,7 +151,7 @@ Literal: Literal = {
     <n:Int> => Literal::Int(n),
     //<s:Str> => Literal::String(s),
     //<l:List> => Literal::List(l),
-    //<o:Object> => Literal::Object(o),
+    <o:Object> => Literal::Object(o),
 }
 
 List: List = {

@@ -10,6 +10,6 @@ mod tests;
 fn main() {
     println!(
         "{:#?}",
-        kal_grammar::BlockInnerParser::new().parse(include_str!("../examples/nested.kal"))
+        kal_grammar::BlockInnerParser::new().parse(include_str!("../examples/null_function.kal"))
     );
 }

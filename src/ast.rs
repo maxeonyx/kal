@@ -1,11 +1,18 @@
 use std::collections::HashMap;
 
+use gc::Finalize;
+use gc_derive::Trace;
+
+#[derive(Debug)]
+pub enum Statement {
+    Let(LetStatement),
+}
+
 #[derive(Debug)]
 pub enum Expression {
     Literal(Literal),
     Ident(Ident),
     FunctionInvocation(FunctionInvocation),
-    Let(LetExpression),
     If(IfExpression),
     Add(AddExpression),
     Subtract(SubtractExpression),
@@ -31,7 +38,7 @@ pub struct MultiplyExpression {
 }
 
 #[derive(Debug)]
-pub struct LetExpression {
+pub struct LetStatement {
     pub variable: Ident,
     pub expr: Box<Expression>,
 }
@@ -54,15 +61,23 @@ pub enum Literal {
     Function(Function),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace)]
 pub struct Function {
+    #[unsafe_ignore_trace]
     pub parameters: Vec<Ident>,
+
+    #[unsafe_ignore_trace]
     pub body: Block,
+}
+
+impl Finalize for Function {
+    fn finalize(&self) {}
 }
 
 #[derive(Debug)]
 pub struct Block {
-    pub expressions: Vec<Expression>,
+    pub statements: Vec<Statement>,
+    pub expression: Box<Expression>,
 }
 
 #[derive(Debug)]

@@ -4,11 +4,21 @@ use crate::interpreter::{eval, types::Value};
 fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
     let text =
         std::fs::read_to_string(path).unwrap_or_else(|_| panic!("Could not read file {:?}", path));
-    let ast = crate::kal_grammar::BlockInnerParser::new()
-        .parse(&text)
-        .unwrap_or_else(|_| panic!("Failed to parse file {:?}.", path));
-    let got = eval(&ast);
+    let ast = Box::new(
+        crate::kal_grammar::BlockInnerParser::new()
+            .parse(&text)
+            .unwrap_or_else(|_| panic!("Failed to parse file {:?}.", path)),
+    );
+    // We ensure that the AST lives longer than any garbage collected objects by giving it a 'static
+    // lifetime by leaking it.
+    let ast = Box::leak(ast);
+    let got = eval(ast);
     assert!(closure(got));
+}
+
+#[test]
+pub fn empty_file() {
+    test_file("examples/empty_file.kal", |val| val == Value::Null);
 }
 
 #[test]
@@ -32,15 +42,11 @@ pub fn nested() {
 }
 
 #[test]
-pub fn string_1() {
-    test_file("examples/string_1.kal", |val| {
-        val == Value::Str("Hello".to_owned())
-    })
+pub fn chained() {
+    test_file("examples/chained.kal", |val| val == Value::Int(23))
 }
 
 #[test]
-pub fn string_2() {
-    test_file("examples/string_2.kal", |val| {
-        val == Value::Str("World\n".to_owned())
-    })
+pub fn null_function() {
+    test_file("examples/null_function.kal", |val| val == Value::Null)
 }
