@@ -5,6 +5,7 @@ pub mod ast;
 lalrpop_mod!(pub kal_grammar);
 pub mod interpreter;
 
+#[cfg(test)]
 mod tests;
 
 fn main() {

@@ -1,6 +1,7 @@
 use crate::ast::{
     Block, ComparisonExpression, ComparisonOperator, Expression, FunctionInvocation, Ident,
-    IfExpression, LetStatement, Literal, NumericExpression, NumericOperator, Statement,
+    IfExpression, LetStatement, Literal, NumericExpression, NumericOperator, ObjectLiteral,
+    Statement,
 };
 
 pub mod types {
@@ -175,7 +176,6 @@ fn eval_expression(ctx: Gc<Context>, expr: &'static Expression) -> Value {
         Expression::Ident(ident) => eval_ident(ctx, ident),
         Expression::If(if_expr) => eval_if(ctx, if_expr),
         Expression::Comparison(comparison) => eval_comparison(ctx, comparison),
-        _ => unimplemented!("Expression type {:?}.", expr), // TODO
     }
 }
 
@@ -300,6 +300,17 @@ fn eval_literal(ctx: Gc<Context>, literal: &'static Literal) -> Value {
         Literal::Bool(val) => Value::Bool(*val),
         Literal::Int(num) => Value::Int(*num),
         Literal::Function(func) => Value::Closure(Closure::new(&func, ctx.clone())),
+        Literal::Object(obj) => literal_object(ctx, obj),
         _ => unimplemented!("Literal type {:?}.", literal),
     }
+}
+
+fn literal_object(ctx: Gc<Context>, obj_literal: &'static ObjectLiteral) -> Value {
+    let mut obj = Object::new();
+    for (ident, expr) in obj_literal.map.iter() {
+        let name = &ident.name;
+        let val = eval_expression(ctx.clone(), expr);
+        obj.add_binding(name.to_owned(), val);
+    }
+    Value::Object(obj)
 }

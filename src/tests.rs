@@ -1,4 +1,7 @@
-use crate::interpreter::{eval, types::Value};
+use crate::interpreter::{
+    eval,
+    types::{Object, Value},
+};
 
 #[allow(dead_code)]
 fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
@@ -103,4 +106,20 @@ pub fn big_file() {
 #[test]
 pub fn big_recursive() {
     test_file("examples/big_recursive.kal", |val| val == Value::Int(1133))
+}
+
+#[test]
+pub fn object_empty() {
+    test_file("examples/object_empty.kal", |val| {
+        val == Value::Object(Object::new())
+    })
+}
+
+#[test]
+pub fn object_simple() {
+    let mut obj = Object::new();
+    obj.add_binding("cat".to_owned(), Value::Int(1));
+    let obj = Value::Object(obj);
+
+    test_file("examples/object_simple.kal", |val| val == obj)
 }

@@ -177,19 +177,19 @@ Literal: Literal = {
     "false" => Literal::Bool(false),
     <n:Int> => Literal::Int(n),
     //<s:Str> => Literal::String(s),
-    //<l:List> => Literal::List(l),
+    <l:List> => Literal::List(l),
     <o:Object> => Literal::Object(o),
 }
 
-List: List = {
+List: ListLiteral = {
     "[" <v:Comma<Expression>> "]" =>
     
-    List {
+    ListLiteral {
         elements: v,
     },
 }
 
-Object: Object = {
+Object: ObjectLiteral = {
     "{" <v:Comma<ObjectKV>> "}" =>
     
     {
@@ -198,7 +198,7 @@ Object: Object = {
             h.insert(i, e);
         }
 
-        Object {
+        ObjectLiteral {
             map: h,
         }
     },

@@ -68,8 +68,8 @@ pub enum Literal {
     Bool(bool),
     Int(i64),
     String(String),
-    Object(Object),
-    List(List),
+    Object(ObjectLiteral),
+    List(ListLiteral),
     Function(Function),
 }
 
@@ -99,12 +99,12 @@ pub struct FunctionInvocation {
 }
 
 #[derive(Debug)]
-pub struct Object {
+pub struct ObjectLiteral {
     pub map: HashMap<Ident, Expression>,
 }
 
 #[derive(Debug)]
-pub struct List {
+pub struct ListLiteral {
     pub elements: Vec<Expression>,
 }
 
