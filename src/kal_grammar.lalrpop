@@ -117,7 +117,16 @@ NormalExpression: Expression = {
 SimpleExpression: Expression = {
     <i:Ident> => Expression::Ident(i),
     <fi:FunctionInvocation> => Expression::FunctionInvocation(fi),
+    <de:DotExpression> => Expression::Dot(de),
     <pe:ParenExpression> => pe,
+}
+
+DotExpression: DotExpression = {
+    <se:SimpleExpression> "." <i:Ident> => 
+        DotExpression {
+            base: Box::new(se),
+            prop: i,
+        },
 }
 
 ParenExpression: Expression = {

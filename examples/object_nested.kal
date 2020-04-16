@@ -1,0 +1,6 @@
+let nested = {
+    a: {
+        b: 22
+    }
+};
+nested.a.b

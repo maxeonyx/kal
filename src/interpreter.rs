@@ -1,6 +1,6 @@
 use crate::ast::{
-    Block, ComparisonExpression, ComparisonOperator, Expression, FunctionInvocation, Ident,
-    IfExpression, LetStatement, Literal, NumericExpression, NumericOperator, ObjectLiteral,
+    Block, ComparisonExpression, ComparisonOperator, DotExpression, Expression, FunctionInvocation,
+    Ident, IfExpression, LetStatement, Literal, NumericExpression, NumericOperator, ObjectLiteral,
     Statement,
 };
 
@@ -14,11 +14,11 @@ pub mod types {
     pub enum Value {
         Null,
         Bool(bool),
-        Str(String),
+        Str(Gc<String>),
         Int(i64),
-        List(Vec<Value>),
-        Object(Object),
-        Closure(Closure),
+        List(Gc<Vec<Value>>),
+        Object(Gc<Object>),
+        Closure(Gc<Closure>),
     }
 
     impl Finalize for Value {
@@ -81,6 +81,13 @@ pub mod types {
 
         pub fn remove_binding(&mut self, k: String) {
             self.inner.remove(&k);
+        }
+
+        pub fn get(&self, k: &str) -> Value {
+            self.inner
+                .get(k)
+                .unwrap_or_else(|| panic!("Failed to access {:?} on this object: {:#?}", k, self))
+                .clone()
         }
     }
 
@@ -176,6 +183,21 @@ fn eval_expression(ctx: Gc<Context>, expr: &'static Expression) -> Value {
         Expression::Ident(ident) => eval_ident(ctx, ident),
         Expression::If(if_expr) => eval_if(ctx, if_expr),
         Expression::Comparison(comparison) => eval_comparison(ctx, comparison),
+        Expression::Dot(dot_expr) => eval_dot(ctx, dot_expr),
+    }
+}
+
+fn eval_dot(ctx: Gc<Context>, dot_expr: &'static DotExpression) -> Value {
+    let DotExpression { base, prop } = dot_expr;
+
+    let base = eval_expression(ctx.clone(), base);
+
+    match base {
+        Value::Object(ref obj) => obj.get(&prop.name).clone(),
+        _ => panic!(
+            "Tried to use dot expression on {:?} from {:?}",
+            base, dot_expr
+        ),
     }
 }
 
@@ -299,7 +321,7 @@ fn eval_literal(ctx: Gc<Context>, literal: &'static Literal) -> Value {
         Literal::Null => Value::Null,
         Literal::Bool(val) => Value::Bool(*val),
         Literal::Int(num) => Value::Int(*num),
-        Literal::Function(func) => Value::Closure(Closure::new(&func, ctx.clone())),
+        Literal::Function(func) => Value::Closure(Gc::new(Closure::new(&func, ctx.clone()))),
         Literal::Object(obj) => literal_object(ctx, obj),
         _ => unimplemented!("Literal type {:?}.", literal),
     }
@@ -312,5 +334,5 @@ fn literal_object(ctx: Gc<Context>, obj_literal: &'static ObjectLiteral) -> Valu
         let val = eval_expression(ctx.clone(), expr);
         obj.add_binding(name.to_owned(), val);
     }
-    Value::Object(obj)
+    Value::Object(Gc::new(obj))
 }

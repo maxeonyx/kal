@@ -2,6 +2,7 @@ use crate::interpreter::{
     eval,
     types::{Object, Value},
 };
+use gc::Gc;
 
 #[allow(dead_code)]
 fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
@@ -111,7 +112,7 @@ pub fn big_recursive() {
 #[test]
 pub fn object_empty() {
     test_file("examples/object_empty.kal", |val| {
-        val == Value::Object(Object::new())
+        val == Value::Object(Gc::new(Object::new()))
     })
 }
 
@@ -119,7 +120,17 @@ pub fn object_empty() {
 pub fn object_simple() {
     let mut obj = Object::new();
     obj.add_binding("cat".to_owned(), Value::Int(1));
-    let obj = Value::Object(obj);
+    let obj = Value::Object(Gc::new(obj));
 
     test_file("examples/object_simple.kal", |val| val == obj)
+}
+
+#[test]
+pub fn object_access() {
+    test_file("examples/object_access.kal", |val| val == Value::Int(2))
+}
+
+#[test]
+pub fn object_nested() {
+    test_file("examples/object_nested.kal", |val| val == Value::Int(22))
 }

@@ -16,6 +16,13 @@ pub enum Expression {
     If(IfExpression),
     Numeric(NumericExpression),
     Comparison(ComparisonExpression),
+    Dot(DotExpression),
+}
+
+#[derive(Debug)]
+pub struct DotExpression {
+    pub base: Box<Expression>,
+    pub prop: Ident,
 }
 
 #[derive(Debug)]

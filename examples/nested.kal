@@ -1,3 +1,3 @@
-let add_two = fn (a) a + 2;
-let add_four = fn (b) add_two(add_two(b));
+let add_two = fn(a) a + 2;
+let add_four = fn(b) add_two(add_two(b));
 add_four(0)
