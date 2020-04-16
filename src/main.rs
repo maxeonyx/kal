@@ -10,6 +10,6 @@ mod tests;
 fn main() {
     println!(
         "{:#?}",
-        kal_grammar::BlockInnerParser::new().parse(include_str!("../examples/null_function.kal"))
+        kal_grammar::BlockInnerParser::new().parse(include_str!("../examples/comparison_true.kal"))
     );
 }

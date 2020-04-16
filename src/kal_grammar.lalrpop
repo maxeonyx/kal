@@ -52,32 +52,59 @@ Statement: Statement = {
     <le:LetStatement> => Statement::Let(le),
 }
 
-// Function literal is here for operator precedence.
+// Function literal is highest operator precedence.
 Expression: Expression = {
     <fl:FunctionLiteral> => Expression::Literal(Literal::Function(fl)),
+    ComparisonExpression,
+}
+
+ComparisonExpression: Expression = {
+    <l:ComparisonExpression> <o:ComparisonOperator> <r:AddExpression> => 
+    Expression::Comparison(ComparisonExpression {
+        left: Box::new(l),
+        right: Box::new(r),
+        operator: o,
+    }),
     AddExpression,
+}
+
+ComparisonOperator: ComparisonOperator = {
+    "==" => ComparisonOperator::Equal,
+    "<=" => ComparisonOperator::LessEqual,
+    "<" => ComparisonOperator::Less,
+    ">=" => ComparisonOperator::GreaterEqual,
+    ">" => ComparisonOperator::Greater,
 }
 
 AddExpression: Expression = {
     <l:AddExpression> "+" <r:MultiplyExpression> =>
-        Expression::Add(AddExpression {
+        Expression::Numeric(NumericExpression {
             left: Box::new(l),
-            right: Box::new(r)
+            right: Box::new(r),
+            operator: NumericOperator::Add,
         }),
     <l:AddExpression> "-" <r:MultiplyExpression> =>
-        Expression::Subtract(SubtractExpression {
+        Expression::Numeric(NumericExpression {
             left: Box::new(l),
-            right: Box::new(r)
+            right: Box::new(r),
+            operator: NumericOperator::Subtract,
         }),
     MultiplyExpression,
 }
 
 MultiplyExpression: Expression = {
     <l:MultiplyExpression> "*" <r:NormalExpression> =>
-    Expression::Multiply(MultiplyExpression {
-        left: Box::new(l),
-        right: Box::new(r),
-    }),
+        Expression::Numeric(NumericExpression {
+            left: Box::new(l),
+            right: Box::new(r),
+            operator: NumericOperator::Multiply,
+        }),
+    <l:MultiplyExpression> "/" <r:NormalExpression> =>
+        Expression::Numeric(NumericExpression {
+            left: Box::new(l),
+            right: Box::new(r),
+            operator: NumericOperator::Divide,
+        }),
     NormalExpression,
 }
 
@@ -125,7 +152,7 @@ IfExpression: IfExpression = {
     "if" <c:Expression> <b:Block> <eb:ElseBody?> =>
     
     IfExpression {
-        expr: Box::new(c),
+        cond: Box::new(c),
         body: b,
         else_body: eb
     },

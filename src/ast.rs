@@ -14,27 +14,39 @@ pub enum Expression {
     Ident(Ident),
     FunctionInvocation(FunctionInvocation),
     If(IfExpression),
-    Add(AddExpression),
-    Subtract(SubtractExpression),
-    Multiply(MultiplyExpression),
+    Numeric(NumericExpression),
+    Comparison(ComparisonExpression),
 }
 
 #[derive(Debug)]
-pub struct AddExpression {
-    pub left: Box<Expression>,
-    pub right: Box<Expression>,
+pub enum ComparisonOperator {
+    Equal,
+    LessEqual,
+    Less,
+    GreaterEqual,
+    Greater,
 }
 
 #[derive(Debug)]
-pub struct SubtractExpression {
+pub struct ComparisonExpression {
     pub left: Box<Expression>,
     pub right: Box<Expression>,
+    pub operator: ComparisonOperator,
 }
 
 #[derive(Debug)]
-pub struct MultiplyExpression {
+pub enum NumericOperator {
+    Add,
+    Multiply,
+    Subtract,
+    Divide,
+}
+
+#[derive(Debug)]
+pub struct NumericExpression {
     pub left: Box<Expression>,
     pub right: Box<Expression>,
+    pub operator: NumericOperator,
 }
 
 #[derive(Debug)]
@@ -45,7 +57,7 @@ pub struct LetStatement {
 
 #[derive(Debug)]
 pub struct IfExpression {
-    pub expr: Box<Expression>,
+    pub cond: Box<Expression>,
     pub body: Block,
     pub else_body: Option<Block>,
 }

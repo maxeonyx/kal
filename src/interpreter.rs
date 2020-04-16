@@ -1,5 +1,6 @@
 use crate::ast::{
-    AddExpression, Block, Expression, FunctionInvocation, Ident, LetStatement, Literal, Statement,
+    Block, ComparisonExpression, ComparisonOperator, Expression, FunctionInvocation, Ident,
+    IfExpression, LetStatement, Literal, NumericExpression, NumericOperator, Statement,
 };
 
 pub mod types {
@@ -170,9 +171,64 @@ fn eval_expression(ctx: Gc<Context>, expr: &'static Expression) -> Value {
     match expr {
         Expression::Literal(literal) => eval_literal(ctx, literal),
         Expression::FunctionInvocation(func_invo) => eval_function_invocation(ctx, func_invo),
-        Expression::Add(add_expr) => eval_add(ctx, add_expr),
+        Expression::Numeric(numeric) => eval_numeric(ctx, numeric),
         Expression::Ident(ident) => eval_ident(ctx, ident),
+        Expression::If(if_expr) => eval_if(ctx, if_expr),
+        Expression::Comparison(comparison) => eval_comparison(ctx, comparison),
         _ => unimplemented!("Expression type {:?}.", expr), // TODO
+    }
+}
+
+fn eval_comparison(ctx: Gc<Context>, comparison: &'static ComparisonExpression) -> Value {
+    let ComparisonExpression {
+        left,
+        right,
+        operator,
+    } = comparison;
+    let left = eval_expression(ctx.clone(), left);
+    let right = eval_expression(ctx.clone(), right);
+    let left = match left {
+        Value::Int(i) => i,
+        _ => panic!("Cant compare, left side not an Int: {:?}.", comparison),
+    };
+    let right = match right {
+        Value::Int(i) => i,
+        _ => panic!("Cant compare, right side not an Int: {:?}.", comparison),
+    };
+
+    match operator {
+        ComparisonOperator::Equal => Value::Bool(left == right),
+        ComparisonOperator::Less => Value::Bool(left < right),
+        ComparisonOperator::Greater => Value::Bool(left > right),
+        ComparisonOperator::LessEqual => Value::Bool(left <= right),
+        ComparisonOperator::GreaterEqual => Value::Bool(left >= right),
+    }
+}
+
+fn eval_if(ctx: Gc<Context>, if_expr: &'static IfExpression) -> Value {
+    let IfExpression {
+        cond,
+        body,
+        else_body,
+    } = if_expr;
+
+    let val = eval_expression(ctx.clone(), &cond);
+    let val = match val {
+        Value::Bool(val) => val,
+        _ => panic!(
+            "Conditional evaled to {:?} instead of a boolean: {:?}.",
+            val, &cond
+        ),
+    };
+
+    if val {
+        eval_block(ctx.clone(), body)
+    } else {
+        if let Some(else_block) = else_body {
+            eval_block(ctx.clone(), else_block)
+        } else {
+            Value::Null
+        }
     }
 }
 
@@ -180,8 +236,12 @@ fn eval_ident(ctx: Gc<Context>, ident: &Ident) -> Value {
     ctx.resolve_name(&ident.name)
 }
 
-fn eval_add(ctx: Gc<Context>, expr: &'static AddExpression) -> Value {
-    let AddExpression { left, right } = expr;
+fn eval_numeric(ctx: Gc<Context>, expr: &'static NumericExpression) -> Value {
+    let NumericExpression {
+        left,
+        right,
+        operator,
+    } = expr;
     let left = eval_expression(ctx.clone(), left);
     let right = eval_expression(ctx.clone(), right);
     let left = match left {
@@ -192,7 +252,13 @@ fn eval_add(ctx: Gc<Context>, expr: &'static AddExpression) -> Value {
         Value::Int(i) => i,
         _ => panic!("Cant add, right side not an Int: {:?}.", expr),
     };
-    Value::Int(left + right)
+
+    match operator {
+        NumericOperator::Add => Value::Int(left + right),
+        NumericOperator::Multiply => Value::Int(left * right),
+        NumericOperator::Subtract => Value::Int(left - right),
+        NumericOperator::Divide => Value::Int(left / right),
+    }
 }
 
 fn eval_function_invocation(ctx: Gc<Context>, invocation: &'static FunctionInvocation) -> Value {
@@ -231,6 +297,7 @@ fn eval_function_invocation(ctx: Gc<Context>, invocation: &'static FunctionInvoc
 fn eval_literal(ctx: Gc<Context>, literal: &'static Literal) -> Value {
     match literal {
         Literal::Null => Value::Null,
+        Literal::Bool(val) => Value::Bool(*val),
         Literal::Int(num) => Value::Int(*num),
         Literal::Function(func) => Value::Closure(Closure::new(&func, ctx.clone())),
         _ => unimplemented!("Literal type {:?}.", literal),

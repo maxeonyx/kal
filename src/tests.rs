@@ -50,3 +50,45 @@ pub fn chained() {
 pub fn null_function() {
     test_file("examples/null_function.kal", |val| val == Value::Null)
 }
+
+#[test]
+pub fn if_expression_true() {
+    test_file("examples/if_expression_true.kal", |val| {
+        val == Value::Int(71)
+    })
+}
+
+#[test]
+pub fn if_expression_false() {
+    test_file("examples/if_expression_false.kal", |val| {
+        val == Value::Int(72)
+    })
+}
+
+#[test]
+pub fn comparison_true() {
+    test_file("examples/comparison_true.kal", |val| {
+        val == Value::Bool(true)
+    })
+}
+
+#[test]
+pub fn comparison_false() {
+    test_file("examples/comparison_false.kal", |val| {
+        val == Value::Bool(false)
+    })
+}
+
+#[test]
+pub fn if_expression_comparison() {
+    test_file("examples/if_expression_comparison.kal", |val| {
+        val == Value::Int(0)
+    })
+}
+
+#[test]
+pub fn recursive_factorial() {
+    test_file("examples/recursive_factorial.kal", |val| {
+        val == Value::Int(120)
+    })
+}
