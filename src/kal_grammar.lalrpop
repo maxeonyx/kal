@@ -55,11 +55,35 @@ Statement: Statement = {
 // Function literal is highest operator precedence.
 Expression: Expression = {
     <fl:FunctionLiteral> => Expression::Literal(Literal::Function(fl)),
+    BooleanExpression,
+}
+
+BooleanExpression: Expression = {
+    <l:BooleanExpression> <o:BooleanOperator> <r:ComparisonExpression> =>
+        Expression::Boolean(BooleanExpression {
+            left: Box::new(l),
+            right: Box::new(r),
+            operator: o,
+        }),
+    NotExpression,
+}
+
+BooleanOperator: BooleanOperator = {
+    "and" => BooleanOperator::And,
+    "or" => BooleanOperator::Or,
+    "xor" => BooleanOperator::Xor,
+}
+
+NotExpression: Expression = {
+    "not" <e:NotExpression> =>
+        Expression::Not(NotExpression {
+            expr: Box::new(e),
+        }),
     ComparisonExpression,
 }
 
 ComparisonExpression: Expression = {
-    <l:ComparisonExpression> <o:ComparisonOperator> <r:AddExpression> => 
+    <l:ComparisonExpression> <o:ComparisonOperator> <r:AddExpression> =>
     Expression::Comparison(ComparisonExpression {
         left: Box::new(l),
         right: Box::new(r),
@@ -70,6 +94,7 @@ ComparisonExpression: Expression = {
 
 ComparisonOperator: ComparisonOperator = {
     "==" => ComparisonOperator::Equal,
+    "!=" => ComparisonOperator::NotEqual,
     "<=" => ComparisonOperator::LessEqual,
     "<" => ComparisonOperator::Less,
     ">=" => ComparisonOperator::GreaterEqual,
@@ -122,7 +147,7 @@ SimpleExpression: Expression = {
 }
 
 DotExpression: DotExpression = {
-    <se:SimpleExpression> "." <i:Ident> => 
+    <se:SimpleExpression> "." <i:Ident> =>
         DotExpression {
             base: Box::new(se),
             prop: i,
@@ -159,7 +184,7 @@ LetStatement: LetStatement = {
 
 IfExpression: IfExpression = {
     "if" <c:Expression> <b:Block> <eb:ElseBody?> =>
-    
+
     IfExpression {
         cond: Box::new(c),
         body: b,
@@ -172,8 +197,8 @@ ElseBody: Block = {
 }
 
 FunctionInvocation: FunctionInvocation = {
-    <se:SimpleExpression> "(" <v:Comma<Expression>> ")" => 
-    
+    <se:SimpleExpression> "(" <v:Comma<Expression>> ")" =>
+
     FunctionInvocation {
         closure_expression: Box::new(se),
         parameters: v,
@@ -192,7 +217,7 @@ Literal: Literal = {
 
 List: ListLiteral = {
     "[" <v:Comma<Expression>> "]" =>
-    
+
     ListLiteral {
         elements: v,
     },
@@ -200,7 +225,7 @@ List: ListLiteral = {
 
 Object: ObjectLiteral = {
     "{" <v:Comma<ObjectKV>> "}" =>
-    
+
     {
         let mut h = HashMap::new();
         for (i, e) in v {
@@ -219,7 +244,7 @@ ObjectKV: (Ident, Expression) = {
 
 Ident: Ident = {
     <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> =>
-    
+
     Ident {
         name: s.to_owned(),
     },

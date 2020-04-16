@@ -1,2 +1,0 @@
-let null_function = fn(x) null;
-null_function(22222)

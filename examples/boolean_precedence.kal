@@ -1,0 +1,18 @@
+let pred = fn (a, b, c, d) (a and b or c and d) == (((a and b) or c) and d);
+
+pred(false, false, false, false)
+and pred(false, false, false, true)
+and pred(false, false, true, false)
+and pred(false, false, true, true)
+and pred(false, true, false, false)
+and pred(false, true, false, true)
+and pred(false, true, true, false)
+and pred(false, true, true, true)
+and pred(true, false, false, false)
+and pred(true, false, false, true)
+and pred(true, false, true, false)
+and pred(true, false, true, true)
+and pred(true, true, false, false)
+and pred(true, true, false, true)
+and pred(true, true, true, false)
+and pred(true, true, true, true)

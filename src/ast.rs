@@ -17,6 +17,27 @@ pub enum Expression {
     Numeric(NumericExpression),
     Comparison(ComparisonExpression),
     Dot(DotExpression),
+    Boolean(BooleanExpression),
+    Not(NotExpression),
+}
+
+#[derive(Debug)]
+pub struct NotExpression {
+    pub expr: Box<Expression>,
+}
+
+#[derive(Debug)]
+pub struct BooleanExpression {
+    pub left: Box<Expression>,
+    pub right: Box<Expression>,
+    pub operator: BooleanOperator,
+}
+
+#[derive(Debug)]
+pub enum BooleanOperator {
+    And,
+    Or,
+    Xor,
 }
 
 #[derive(Debug)]
@@ -28,6 +49,7 @@ pub struct DotExpression {
 #[derive(Debug)]
 pub enum ComparisonOperator {
     Equal,
+    NotEqual,
     LessEqual,
     Less,
     GreaterEqual,

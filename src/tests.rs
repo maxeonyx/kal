@@ -31,28 +31,35 @@ pub fn let_expr_basic() {
 }
 
 #[test]
-pub fn add_one() {
-    test_file("examples/add_one.kal", |val| val == Value::Int(6));
+pub fn fn_add_one() {
+    test_file("examples/fn_add_one.kal", |val| val == Value::Int(6));
 }
 
 #[test]
-pub fn nameless() {
-    test_file("examples/nameless.kal", |val| val == Value::Int(452));
+pub fn fn_nameless() {
+    test_file("examples/fn_nameless.kal", |val| val == Value::Int(452));
 }
 
 #[test]
-pub fn nested() {
-    test_file("examples/nested.kal", |val| val == Value::Int(4))
+pub fn fn_nested() {
+    test_file("examples/fn_nested.kal", |val| val == Value::Int(4))
 }
 
 #[test]
-pub fn chained() {
-    test_file("examples/chained.kal", |val| val == Value::Int(23))
+pub fn fn_chained() {
+    test_file("examples/fn_chained.kal", |val| val == Value::Int(23))
 }
 
 #[test]
-pub fn null_function() {
-    test_file("examples/null_function.kal", |val| val == Value::Null)
+pub fn fn_null() {
+    test_file("examples/fn_null.kal", |val| val == Value::Null)
+}
+
+#[test]
+pub fn fn_recursive_factorial() {
+    test_file("examples/fn_recursive_factorial.kal", |val| {
+        val == Value::Int(120)
+    })
 }
 
 #[test]
@@ -87,13 +94,6 @@ pub fn comparison_false() {
 pub fn if_expression_comparison() {
     test_file("examples/if_expression_comparison.kal", |val| {
         val == Value::Int(0)
-    })
-}
-
-#[test]
-pub fn recursive_factorial() {
-    test_file("examples/recursive_factorial.kal", |val| {
-        val == Value::Int(120)
     })
 }
 
@@ -133,4 +133,26 @@ pub fn object_access() {
 #[test]
 pub fn object_nested() {
     test_file("examples/object_nested.kal", |val| val == Value::Int(22))
+}
+
+#[test]
+pub fn boolean_and() {
+    test_file("examples/boolean_and.kal", |val| val == Value::Bool(false))
+}
+
+#[test]
+pub fn boolean_or() {
+    test_file("examples/boolean_or.kal", |val| val == Value::Bool(true))
+}
+
+#[test]
+pub fn boolean_xor() {
+    test_file("examples/boolean_xor.kal", |val| val == Value::Bool(true))
+}
+
+#[test]
+pub fn boolean_precedence() {
+    test_file("examples/boolean_precedence.kal", |val| {
+        val == Value::Bool(true)
+    })
 }

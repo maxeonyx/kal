@@ -1,7 +1,9 @@
+use crate::ast::BooleanExpression;
+use crate::ast::NotExpression;
 use crate::ast::{
-    Block, ComparisonExpression, ComparisonOperator, DotExpression, Expression, FunctionInvocation,
-    Ident, IfExpression, LetStatement, Literal, NumericExpression, NumericOperator, ObjectLiteral,
-    Statement,
+    Block, BooleanOperator, ComparisonExpression, ComparisonOperator, DotExpression, Expression,
+    FunctionInvocation, Ident, IfExpression, LetStatement, Literal, NumericExpression,
+    NumericOperator, ObjectLiteral, Statement,
 };
 
 pub mod types {
@@ -25,7 +27,6 @@ pub mod types {
         fn finalize(&self) {}
     }
 
-    // TODO: not really a closure yet. Doesn't capture lexical scope
     #[derive(Debug, Clone, Trace)]
     pub struct Closure {
         pub code: &'static Function,
@@ -127,7 +128,6 @@ pub mod types {
         }
 
         pub fn current_scope(&self) -> &Object {
-            // unwrap ok because we never remove all scopes
             &self.scope
         }
 
@@ -184,6 +184,88 @@ fn eval_expression(ctx: Gc<Context>, expr: &'static Expression) -> Value {
         Expression::If(if_expr) => eval_if(ctx, if_expr),
         Expression::Comparison(comparison) => eval_comparison(ctx, comparison),
         Expression::Dot(dot_expr) => eval_dot(ctx, dot_expr),
+        Expression::Boolean(bool_expr) => eval_bool(ctx, bool_expr),
+        Expression::Not(not_expr) => eval_not(ctx, not_expr),
+    }
+}
+
+fn eval_not(ctx: Gc<Context>, not_expr: &'static NotExpression) -> Value {
+    let NotExpression { expr } = not_expr;
+
+    let val = eval_expression(ctx, expr);
+    let val = match val {
+        Value::Bool(val) => val,
+        _ => panic!(
+            "Cant apply the not operator, the operand is not a bool: {:?}.",
+            not_expr
+        ),
+    };
+
+    Value::Bool(!val)
+}
+
+fn eval_bool(ctx: Gc<Context>, bool_expr: &'static BooleanExpression) -> Value {
+    let BooleanExpression {
+        left,
+        right,
+        operator,
+    } = bool_expr;
+
+    match operator {
+        BooleanOperator::And => {
+            let left = eval_expression(ctx.clone(), left);
+            let left = match left {
+                Value::Bool(i) => i,
+                _ => panic!("Cant compare, left side not a bool: {:?}.", bool_expr),
+            };
+
+            // short-circuit
+            if !left {
+                Value::Bool(false)
+            } else {
+                let right = eval_expression(ctx.clone(), right);
+                let right = match right {
+                    Value::Bool(i) => i,
+                    _ => panic!("Cant compare, right side not a bool: {:?}.", bool_expr),
+                };
+
+                Value::Bool(left && right)
+            }
+        }
+        BooleanOperator::Or => {
+            let left = eval_expression(ctx.clone(), left);
+            let left = match left {
+                Value::Bool(i) => i,
+                _ => panic!("Cant compare, left side not a bool: {:?}.", bool_expr),
+            };
+
+            // short-circuit
+            if left {
+                Value::Bool(true)
+            } else {
+                let right = eval_expression(ctx.clone(), right);
+                let right = match right {
+                    Value::Bool(i) => i,
+                    _ => panic!("Cant compare, right side not a bool: {:?}.", bool_expr),
+                };
+
+                Value::Bool(left || right)
+            }
+        }
+        BooleanOperator::Xor => {
+            let left = eval_expression(ctx.clone(), left);
+            let left = match left {
+                Value::Bool(i) => i,
+                _ => panic!("Cant compare, left side not a bool: {:?}.", bool_expr),
+            };
+            let right = eval_expression(ctx.clone(), right);
+            let right = match right {
+                Value::Bool(i) => i,
+                _ => panic!("Cant compare, right side not a bool: {:?}.", bool_expr),
+            };
+
+            Value::Bool((left && !right) || (!left && right))
+        }
     }
 }
 
@@ -209,21 +291,40 @@ fn eval_comparison(ctx: Gc<Context>, comparison: &'static ComparisonExpression) 
     } = comparison;
     let left = eval_expression(ctx.clone(), left);
     let right = eval_expression(ctx.clone(), right);
-    let left = match left {
-        Value::Int(i) => i,
-        _ => panic!("Cant compare, left side not an Int: {:?}.", comparison),
-    };
-    let right = match right {
-        Value::Int(i) => i,
-        _ => panic!("Cant compare, right side not an Int: {:?}.", comparison),
+
+    let result = match (operator, &left, &right) {
+        (operator, Value::Bool(left), Value::Bool(right)) => compare(operator, left, right),
+        (operator, Value::Int(left), Value::Int(right)) => compare(operator, left, right),
+        (operator, Value::Str(left), Value::Str(right)) => compare(operator, left, right),
+        (ComparisonOperator::Equal, Value::Null, Value::Null) => true,
+        (ComparisonOperator::NotEqual, Value::Null, Value::Null) => false,
+        (ComparisonOperator::Equal, Value::List(left), Value::List(right)) => left == right,
+        (ComparisonOperator::NotEqual, Value::List(left), Value::List(right)) => left != right,
+        (ComparisonOperator::Equal, Value::Object(left), Value::Object(right)) => left == right,
+        (ComparisonOperator::NotEqual, Value::Object(left), Value::Object(right)) => left != right,
+        (ComparisonOperator::Equal, Value::Closure(_), Value::Closure(_)) => false,
+        (ComparisonOperator::NotEqual, Value::Closure(_), Value::Closure(_)) => true,
+        _ => panic!(
+            "Invalid comparison. Cannot apply {:?} to {:?} and {:?}",
+            operator, left, right
+        ),
     };
 
+    Value::Bool(result)
+}
+
+fn compare<T: std::cmp::Eq + std::cmp::PartialOrd>(
+    operator: &ComparisonOperator,
+    left: T,
+    right: T,
+) -> bool {
     match operator {
-        ComparisonOperator::Equal => Value::Bool(left == right),
-        ComparisonOperator::Less => Value::Bool(left < right),
-        ComparisonOperator::Greater => Value::Bool(left > right),
-        ComparisonOperator::LessEqual => Value::Bool(left <= right),
-        ComparisonOperator::GreaterEqual => Value::Bool(left >= right),
+        ComparisonOperator::Equal => left == right,
+        ComparisonOperator::NotEqual => left != right,
+        ComparisonOperator::Less => left < right,
+        ComparisonOperator::Greater => left > right,
+        ComparisonOperator::LessEqual => left <= right,
+        ComparisonOperator::GreaterEqual => left >= right,
     }
 }
 
