@@ -8,8 +8,15 @@ pub mod interpreter;
 mod tests;
 
 fn main() {
-    println!(
-        "{:#?}",
-        kal_grammar::BlockInnerParser::new().parse(include_str!("../examples/comparison_true.kal"))
-    );
+    let ast = kal_grammar::BlockInnerParser::new()
+        .parse(include_str!("../examples/big_file.kal"))
+        .unwrap_or_else(|err| panic!("Failed to parse file, {:?}", err));
+
+    // Never deallocate the AST, because it has to live longer than garbage collected objects.
+    let ast = Box::leak(Box::new(ast));
+
+    // println!("{:#?}", ast);
+    let result = interpreter::eval(ast);
+
+    println!("{:#?}", result);
 }

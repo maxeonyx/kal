@@ -92,3 +92,15 @@ pub fn recursive_factorial() {
         val == Value::Int(120)
     })
 }
+
+#[cfg(not(debug_assertions))]
+#[test]
+pub fn big_file() {
+    test_file("examples/big_file.kal", |val| val == Value::Int(109621))
+}
+
+#[cfg(not(debug_assertions))]
+#[test]
+pub fn big_recursive() {
+    test_file("examples/big_recursive.kal", |val| val == Value::Int(1133))
+}
