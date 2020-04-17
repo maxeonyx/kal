@@ -1,0 +1,20 @@
+let pets = {
+    cat: 1,
+    dog: 2,
+};
+
+let humans = {
+    john: 1,
+};
+
+let number_of_dogs = fn (
+    pets,
+    humans,
+) {
+    pets.dog
+};
+
+number_of_dogs(
+    pets,
+    humans,
+)

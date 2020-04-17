@@ -2,7 +2,7 @@ use crate::ast::BooleanExpression;
 use crate::ast::NotExpression;
 use crate::ast::{
     Block, BooleanOperator, ComparisonExpression, ComparisonOperator, DotExpression, Expression,
-    FunctionInvocation, Ident, IfExpression, LetStatement, Literal, NumericExpression,
+    FunctionInvocation, Ident, IfExpression, LetStatement, ListLiteral, Literal, NumericExpression,
     NumericOperator, ObjectLiteral, Statement,
 };
 
@@ -460,8 +460,22 @@ fn eval_literal(
         Literal::Function(func) => Value::Closure(Rc::new(Closure::new(&func, ctx.clone()))),
         Literal::Object(obj) => literal_object(ctx, sym_gen, obj),
         Literal::Symbol => sym_gen.next(),
+        Literal::List(list) => literal_list(ctx, sym_gen, list),
         _ => unimplemented!("Literal type {:?}.", literal),
     }
+}
+
+fn literal_list(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    list_literal: &'static ListLiteral,
+) -> Value {
+    let mut list = Vec::with_capacity(list_literal.elements.len());
+    for expr in list_literal.elements.iter() {
+        let val = eval_expression(ctx.clone(), sym_gen, expr);
+        list.push(val);
+    }
+    Value::List(Rc::new(list))
 }
 
 fn literal_object(

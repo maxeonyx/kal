@@ -17,7 +17,10 @@ fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
     // lifetime by leaking it.
     let ast = Box::leak(ast);
     let got = eval(ast);
-    assert!(closure(got));
+    assert!(
+        closure(got),
+        "Value returned from example did not match the expected value."
+    );
 }
 
 macro_rules! test {
@@ -93,3 +96,7 @@ test! { symbol, Value::Symbol(0) } // first symbol is always 0
 test! { symbol_as_value, Value::Symbol(1) } // second symbol is always 1
 
 test! { symbol_equality, Value::Bool(false) }
+
+test! { trailing_commas, Value::Int(2) }
+
+test! { list, Value::List(Rc::new(vec![Value::Int(1), Value::Int(2), Value::Int(3)])) }
