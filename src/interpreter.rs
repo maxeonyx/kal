@@ -2,8 +2,8 @@ use crate::ast::BooleanExpression;
 use crate::ast::NotExpression;
 use crate::ast::{
     Block, BooleanOperator, ComparisonExpression, ComparisonOperator, DotExpression, Expression,
-    FunctionInvocation, Ident, IfExpression, LetStatement, ListLiteral, Literal, NumericExpression,
-    NumericOperator, ObjectLiteral, Statement,
+    FunctionInvocation, Ident, IfExpression, IndexExpression, LetStatement, ListLiteral, Literal,
+    NegativeExpression, NumericExpression, NumericOperator, ObjectLiteral, Statement,
 };
 
 pub mod types {
@@ -185,8 +185,30 @@ fn eval_expression(
         Expression::If(if_expr) => eval_if(ctx, sym_gen, if_expr),
         Expression::Comparison(comparison) => eval_comparison(ctx, sym_gen, comparison),
         Expression::Dot(dot_expr) => eval_dot(ctx, sym_gen, dot_expr),
+        Expression::Index(index_expr) => eval_index(ctx, sym_gen, index_expr),
         Expression::Boolean(bool_expr) => eval_bool(ctx, sym_gen, bool_expr),
         Expression::Not(not_expr) => eval_not(ctx, sym_gen, not_expr),
+        Expression::Negative(neg) => eval_negative(ctx, sym_gen, neg),
+    }
+}
+
+fn eval_negative(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    neg: &'static NegativeExpression,
+) -> Value {
+    let NegativeExpression { expr } = neg;
+
+    let val = eval_expression(ctx, sym_gen, expr);
+    match val {
+        Value::Int(i) => {
+            if i == std::i64::MIN {
+                // TODO: BigInteger wrapping
+                panic!("Can't negate i64::min.");
+            }
+            Value::Int(-i)
+        }
+        _ => panic!("Can't apply negation to value other than an int."),
     }
 }
 
@@ -292,6 +314,55 @@ fn eval_dot(
         _ => panic!(
             "Tried to use dot expression on {:?} from {:?}",
             base, dot_expr
+        ),
+    }
+}
+
+fn eval_index(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    index_expr: &'static IndexExpression,
+) -> Value {
+    let IndexExpression { base, index } = index_expr;
+
+    let base = eval_expression(ctx.clone(), sym_gen, base);
+    let index = eval_expression(ctx, sym_gen, index);
+
+    match base {
+        Value::List(ref list) => match index {
+            Value::Int(i) => {
+                if i >= 0 {
+                    let i = i as usize;
+                    match list.get(i) {
+                        None => panic!(
+                            "Index out of range. Index was {:?}, but list has {:?} elements.",
+                            i,
+                            list.len()
+                        ),
+                        Some(el) => el.clone(),
+                    }
+                } else {
+                    // negative indices navigate from the end, like python
+                    let ui = (-i) as usize;
+                    let len = list.len();
+                    match list.get(len - ui) {
+                        None => panic!(
+                            "Index out of range. Index was {:?}, but list has {:?} elements.",
+                            i,
+                            list.len()
+                        ),
+                        Some(el) => el.clone(),
+                    }
+                }
+            }
+            _ => panic!(
+                "Tried to index a list with value other than int. list: {:?}, int: {:?}",
+                base, index
+            ),
+        },
+        _ => panic!(
+            "Tried to use dot expression on {:?} from {:?}",
+            base, index_expr
         ),
     }
 }

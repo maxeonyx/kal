@@ -14,8 +14,15 @@ pub enum Expression {
     Numeric(NumericExpression),
     Comparison(ComparisonExpression),
     Dot(DotExpression),
+    Index(IndexExpression),
     Boolean(BooleanExpression),
     Not(NotExpression),
+    Negative(NegativeExpression),
+}
+
+#[derive(Debug)]
+pub struct NegativeExpression {
+    pub expr: Box<Expression>,
 }
 
 #[derive(Debug)]
@@ -41,6 +48,12 @@ pub enum BooleanOperator {
 pub struct DotExpression {
     pub base: Box<Expression>,
     pub prop: Ident,
+}
+
+#[derive(Debug)]
+pub struct IndexExpression {
+    pub base: Box<Expression>,
+    pub index: Box<Expression>,
 }
 
 #[derive(Debug)]

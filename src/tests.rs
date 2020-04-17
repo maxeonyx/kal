@@ -100,3 +100,21 @@ test! { symbol_equality, Value::Bool(false) }
 test! { trailing_commas, Value::Int(2) }
 
 test! { list, Value::List(Rc::new(vec![Value::Int(1), Value::Int(2), Value::Int(3)])) }
+
+test! { list_index, Value::Int(29) }
+
+test! { list_negative_index, Value::Int(53) }
+
+test! { int, Value::Int(5) }
+
+test! { int_negative, Value::Int(-5) }
+
+test! { num_addition, Value::Int(8) }
+
+test! { num_subtraction, Value::Int(-2) }
+
+test! { num_multiplication, Value::Int(15) }
+
+test! { num_negative_subtraction, Value::Int(14) }
+
+test! { num_division, Value::Int(2) }

@@ -138,6 +138,14 @@ MultiplyExpression: Expression = {
             right: Box::new(r),
             operator: NumericOperator::Divide,
         }),
+    NegativeExpression,
+}
+
+NegativeExpression: Expression = {
+    "-" <e:NormalExpression> =>
+        Expression::Negative(NegativeExpression {
+            expr: Box::new(e),
+        }),
     NormalExpression,
 }
 
@@ -151,6 +159,7 @@ SimpleExpression: Expression = {
     <i:Ident> => Expression::Ident(i),
     <fi:FunctionInvocation> => Expression::FunctionInvocation(fi),
     <de:DotExpression> => Expression::Dot(de),
+    <ie:IndexExpression> => Expression::Index(ie),
     <pe:ParenExpression> => pe,
 }
 
@@ -159,6 +168,14 @@ DotExpression: DotExpression = {
         DotExpression {
             base: Box::new(se),
             prop: i,
+        },
+}
+
+IndexExpression: IndexExpression = {
+    <base:SimpleExpression> "[" <index:Expression> "]" =>
+        IndexExpression {
+            base: Box::new(base),
+            index: Box::new(index),
         },
 }
 
