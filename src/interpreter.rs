@@ -164,8 +164,10 @@ fn eval_block(ctx: Rc<Context>, sym_gen: &mut SymbolGenerator, block: &'static B
             }
         }
     }
-
-    eval_expression(Rc::new(ctx), sym_gen, &block.expression)
+    match block.expression {
+        None => Value::Null,
+        Some(ref expr) => eval_expression(Rc::new(ctx), sym_gen, expr),
+    }
 }
 
 fn eval_expression(

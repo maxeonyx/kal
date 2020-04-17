@@ -22,28 +22,36 @@ Block: Block = {
 
 // kal files are "block inners".
 // Essentially they are zero parameter functions
+// We explicitly allow empty files.
 pub BlockInner: Block = {
-    // allow empty files/functions/blocks
-    => {
+    =>
         Block {
             statements: Vec::new(),
-            expression: Box::new(Expression::Literal(Literal::Null)),
-        }
-    },
-    <v:(<Statement> ";")*> <e:Expression> => {
+            expression: None,
+        },
+    <e:Expression> =>
+        Block {
+            statements: Vec::new(),
+            expression: Some(Box::new(e)),
+        },
+    <v:(<Statement> ";")+> <e:Expression?> =>
         Block {
             statements: v,
-            expression: Box::new(e),
-        }
-    }
+            expression: e.map(|expr| Box::new(expr)),
+        },
 }
 
-// Blocks do not allow the block to be empty. This means that curly braces are empty objects instead.
+// Blocks do not allow the block to be empty. This means that lone curly braces are empty objects instead.
 pub BlockInnerNotEmpty: Block = {
-    <v:(<Statement> ";")*> <e:Expression> => {
+    <e:Expression> =>
+        Block {
+            statements: Vec::new(),
+            expression: Some(Box::new(e)),
+        },
+    <v:(<Statement> ";")+> <e:Expression?> => {
         Block {
             statements: v,
-            expression: Box::new(e),
+            expression: e.map(|expr| Box::new(expr)),
         }
     }
 }
@@ -169,7 +177,7 @@ FunctionLiteral: Function = {
 FunctionBody: Block = {
     <e: Expression> => Block {
         statements: Vec::new(),
-        expression: Box::new(e),
+        expression: Some(Box::new(e)),
     },
     <b: Block> => b,
 }

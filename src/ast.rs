@@ -109,7 +109,7 @@ pub struct Function {
 #[derive(Debug)]
 pub struct Block {
     pub statements: Vec<Statement>,
-    pub expression: Box<Expression>,
+    pub expression: Option<Box<Expression>>,
 }
 
 #[derive(Debug)]
