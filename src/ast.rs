@@ -92,6 +92,7 @@ pub struct IfExpression {
 pub enum Literal {
     Null,
     Bool(bool),
+    Symbol,
     Int(i64),
     String(String),
     Object(ObjectLiteral),

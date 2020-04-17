@@ -1,0 +1,5 @@
+let unused = symbol;
+let a = symbol;
+({
+    key: a
+}).key

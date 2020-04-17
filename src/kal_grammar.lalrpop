@@ -209,6 +209,7 @@ Literal: Literal = {
     "null" => Literal::Null,
     "true" => Literal::Bool(true),
     "false" => Literal::Bool(false),
+    "symbol" => Literal::Symbol,
     <n:Int> => Literal::Int(n),
     //<s:Str> => Literal::String(s),
     <l:List> => Literal::List(l),

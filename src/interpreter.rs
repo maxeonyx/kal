@@ -20,6 +20,23 @@ pub mod types {
         List(Rc<Vec<Value>>),
         Object(Rc<Object>),
         Closure(Rc<Closure>),
+        Symbol(u64),
+    }
+
+    pub struct SymbolGenerator {
+        counter: u64,
+    }
+
+    impl SymbolGenerator {
+        pub fn new() -> Self {
+            SymbolGenerator { counter: 0 }
+        }
+
+        pub fn next(&mut self) -> Value {
+            let n = self.counter;
+            self.counter += 1;
+            Value::Symbol(n)
+        }
     }
 
     #[derive(Debug, Clone)]
@@ -128,18 +145,19 @@ use std::rc::Rc;
 
 pub fn eval(ast: &'static Block) -> Value {
     let ctx = Rc::new(Context::new());
+    let mut sym_gen = SymbolGenerator::new();
 
-    eval_block(ctx, ast)
+    eval_block(ctx, &mut sym_gen, ast)
 }
 
-fn eval_block(ctx: Rc<Context>, block: &'static Block) -> Value {
+fn eval_block(ctx: Rc<Context>, sym_gen: &mut SymbolGenerator, block: &'static Block) -> Value {
     let mut ctx = Context::extend(ctx);
     for statement in block.statements.iter() {
         match statement {
             Statement::Let(let_statement) => {
                 let LetStatement { variable, expr } = let_statement;
                 let ctx_before_let = Rc::new(ctx);
-                let value = eval_expression(ctx_before_let.clone(), expr);
+                let value = eval_expression(ctx_before_let.clone(), sym_gen, expr);
 
                 ctx = Context::extend(ctx_before_let);
                 ctx.add_binding(variable.name.clone(), value.clone());
@@ -147,27 +165,37 @@ fn eval_block(ctx: Rc<Context>, block: &'static Block) -> Value {
         }
     }
 
-    eval_expression(Rc::new(ctx), &block.expression)
+    eval_expression(Rc::new(ctx), sym_gen, &block.expression)
 }
 
-fn eval_expression(ctx: Rc<Context>, expr: &'static Expression) -> Value {
+fn eval_expression(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    expr: &'static Expression,
+) -> Value {
     match expr {
-        Expression::Literal(literal) => eval_literal(ctx, literal),
-        Expression::FunctionInvocation(func_invo) => eval_function_invocation(ctx, func_invo),
-        Expression::Numeric(numeric) => eval_numeric(ctx, numeric),
+        Expression::Literal(literal) => eval_literal(ctx, sym_gen, literal),
+        Expression::FunctionInvocation(func_invo) => {
+            eval_function_invocation(ctx, sym_gen, func_invo)
+        }
+        Expression::Numeric(numeric) => eval_numeric(ctx, sym_gen, numeric),
         Expression::Ident(ident) => eval_ident(ctx, ident),
-        Expression::If(if_expr) => eval_if(ctx, if_expr),
-        Expression::Comparison(comparison) => eval_comparison(ctx, comparison),
-        Expression::Dot(dot_expr) => eval_dot(ctx, dot_expr),
-        Expression::Boolean(bool_expr) => eval_bool(ctx, bool_expr),
-        Expression::Not(not_expr) => eval_not(ctx, not_expr),
+        Expression::If(if_expr) => eval_if(ctx, sym_gen, if_expr),
+        Expression::Comparison(comparison) => eval_comparison(ctx, sym_gen, comparison),
+        Expression::Dot(dot_expr) => eval_dot(ctx, sym_gen, dot_expr),
+        Expression::Boolean(bool_expr) => eval_bool(ctx, sym_gen, bool_expr),
+        Expression::Not(not_expr) => eval_not(ctx, sym_gen, not_expr),
     }
 }
 
-fn eval_not(ctx: Rc<Context>, not_expr: &'static NotExpression) -> Value {
+fn eval_not(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    not_expr: &'static NotExpression,
+) -> Value {
     let NotExpression { expr } = not_expr;
 
-    let val = eval_expression(ctx, expr);
+    let val = eval_expression(ctx, sym_gen, expr);
     let val = match val {
         Value::Bool(val) => val,
         _ => panic!(
@@ -179,7 +207,11 @@ fn eval_not(ctx: Rc<Context>, not_expr: &'static NotExpression) -> Value {
     Value::Bool(!val)
 }
 
-fn eval_bool(ctx: Rc<Context>, bool_expr: &'static BooleanExpression) -> Value {
+fn eval_bool(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    bool_expr: &'static BooleanExpression,
+) -> Value {
     let BooleanExpression {
         left,
         right,
@@ -188,7 +220,7 @@ fn eval_bool(ctx: Rc<Context>, bool_expr: &'static BooleanExpression) -> Value {
 
     match operator {
         BooleanOperator::And => {
-            let left = eval_expression(ctx.clone(), left);
+            let left = eval_expression(ctx.clone(), sym_gen, left);
             let left = match left {
                 Value::Bool(i) => i,
                 _ => panic!("Cant compare, left side not a bool: {:?}.", bool_expr),
@@ -198,7 +230,7 @@ fn eval_bool(ctx: Rc<Context>, bool_expr: &'static BooleanExpression) -> Value {
             if !left {
                 Value::Bool(false)
             } else {
-                let right = eval_expression(ctx.clone(), right);
+                let right = eval_expression(ctx.clone(), sym_gen, right);
                 let right = match right {
                     Value::Bool(i) => i,
                     _ => panic!("Cant compare, right side not a bool: {:?}.", bool_expr),
@@ -208,7 +240,7 @@ fn eval_bool(ctx: Rc<Context>, bool_expr: &'static BooleanExpression) -> Value {
             }
         }
         BooleanOperator::Or => {
-            let left = eval_expression(ctx.clone(), left);
+            let left = eval_expression(ctx.clone(), sym_gen, left);
             let left = match left {
                 Value::Bool(i) => i,
                 _ => panic!("Cant compare, left side not a bool: {:?}.", bool_expr),
@@ -218,7 +250,7 @@ fn eval_bool(ctx: Rc<Context>, bool_expr: &'static BooleanExpression) -> Value {
             if left {
                 Value::Bool(true)
             } else {
-                let right = eval_expression(ctx.clone(), right);
+                let right = eval_expression(ctx.clone(), sym_gen, right);
                 let right = match right {
                     Value::Bool(i) => i,
                     _ => panic!("Cant compare, right side not a bool: {:?}.", bool_expr),
@@ -228,12 +260,12 @@ fn eval_bool(ctx: Rc<Context>, bool_expr: &'static BooleanExpression) -> Value {
             }
         }
         BooleanOperator::Xor => {
-            let left = eval_expression(ctx.clone(), left);
+            let left = eval_expression(ctx.clone(), sym_gen, left);
             let left = match left {
                 Value::Bool(i) => i,
                 _ => panic!("Cant compare, left side not a bool: {:?}.", bool_expr),
             };
-            let right = eval_expression(ctx.clone(), right);
+            let right = eval_expression(ctx.clone(), sym_gen, right);
             let right = match right {
                 Value::Bool(i) => i,
                 _ => panic!("Cant compare, right side not a bool: {:?}.", bool_expr),
@@ -244,10 +276,14 @@ fn eval_bool(ctx: Rc<Context>, bool_expr: &'static BooleanExpression) -> Value {
     }
 }
 
-fn eval_dot(ctx: Rc<Context>, dot_expr: &'static DotExpression) -> Value {
+fn eval_dot(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    dot_expr: &'static DotExpression,
+) -> Value {
     let DotExpression { base, prop } = dot_expr;
 
-    let base = eval_expression(ctx.clone(), base);
+    let base = eval_expression(ctx.clone(), sym_gen, base);
 
     match base {
         Value::Object(ref obj) => obj.get(&prop.name).clone(),
@@ -258,19 +294,25 @@ fn eval_dot(ctx: Rc<Context>, dot_expr: &'static DotExpression) -> Value {
     }
 }
 
-fn eval_comparison(ctx: Rc<Context>, comparison: &'static ComparisonExpression) -> Value {
+fn eval_comparison(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    comparison: &'static ComparisonExpression,
+) -> Value {
     let ComparisonExpression {
         left,
         right,
         operator,
     } = comparison;
-    let left = eval_expression(ctx.clone(), left);
-    let right = eval_expression(ctx.clone(), right);
+    let left = eval_expression(ctx.clone(), sym_gen, left);
+    let right = eval_expression(ctx.clone(), sym_gen, right);
 
     let result = match (operator, &left, &right) {
         (operator, Value::Bool(left), Value::Bool(right)) => compare(operator, left, right),
         (operator, Value::Int(left), Value::Int(right)) => compare(operator, left, right),
         (operator, Value::Str(left), Value::Str(right)) => compare(operator, left, right),
+        (ComparisonOperator::Equal, Value::Symbol(left), Value::Symbol(right)) => left == right,
+        (ComparisonOperator::NotEqual, Value::Symbol(left), Value::Symbol(right)) => left != right,
         (ComparisonOperator::Equal, Value::Null, Value::Null) => true,
         (ComparisonOperator::NotEqual, Value::Null, Value::Null) => false,
         (ComparisonOperator::Equal, Value::List(left), Value::List(right)) => left == right,
@@ -303,14 +345,18 @@ fn compare<T: std::cmp::Eq + std::cmp::PartialOrd>(
     }
 }
 
-fn eval_if(ctx: Rc<Context>, if_expr: &'static IfExpression) -> Value {
+fn eval_if(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    if_expr: &'static IfExpression,
+) -> Value {
     let IfExpression {
         cond,
         body,
         else_body,
     } = if_expr;
 
-    let val = eval_expression(ctx.clone(), &cond);
+    let val = eval_expression(ctx.clone(), sym_gen, &cond);
     let val = match val {
         Value::Bool(val) => val,
         _ => panic!(
@@ -320,10 +366,10 @@ fn eval_if(ctx: Rc<Context>, if_expr: &'static IfExpression) -> Value {
     };
 
     if val {
-        eval_block(ctx.clone(), body)
+        eval_block(ctx.clone(), sym_gen, body)
     } else {
         if let Some(else_block) = else_body {
-            eval_block(ctx.clone(), else_block)
+            eval_block(ctx.clone(), sym_gen, else_block)
         } else {
             Value::Null
         }
@@ -334,14 +380,18 @@ fn eval_ident(ctx: Rc<Context>, ident: &Ident) -> Value {
     ctx.resolve_name(&ident.name)
 }
 
-fn eval_numeric(ctx: Rc<Context>, expr: &'static NumericExpression) -> Value {
+fn eval_numeric(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    expr: &'static NumericExpression,
+) -> Value {
     let NumericExpression {
         left,
         right,
         operator,
     } = expr;
-    let left = eval_expression(ctx.clone(), left);
-    let right = eval_expression(ctx.clone(), right);
+    let left = eval_expression(ctx.clone(), sym_gen, left);
+    let right = eval_expression(ctx.clone(), sym_gen, right);
     let left = match left {
         Value::Int(i) => i,
         _ => panic!("Cant add, left side not an Int: {:?}.", expr),
@@ -359,8 +409,12 @@ fn eval_numeric(ctx: Rc<Context>, expr: &'static NumericExpression) -> Value {
     }
 }
 
-fn eval_function_invocation(ctx: Rc<Context>, invocation: &'static FunctionInvocation) -> Value {
-    let val = eval_expression(ctx.clone(), &invocation.closure_expression);
+fn eval_function_invocation(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    invocation: &'static FunctionInvocation,
+) -> Value {
+    let val = eval_expression(ctx.clone(), sym_gen, &invocation.closure_expression);
 
     match val {
         Value::Closure(ref closure) => {
@@ -373,7 +427,7 @@ fn eval_function_invocation(ctx: Rc<Context>, invocation: &'static FunctionInvoc
             let mut params = Vec::with_capacity(invocation.parameters.len());
             for i in 0..invocation.parameters.len() {
                 let expression = &invocation.parameters[i];
-                let val = eval_expression(ctx.clone(), expression);
+                let val = eval_expression(ctx.clone(), sym_gen, expression);
                 params.push(val);
             }
 
@@ -383,7 +437,7 @@ fn eval_function_invocation(ctx: Rc<Context>, invocation: &'static FunctionInvoc
                 closure_ctx.add_binding(name.to_owned(), val);
             }
 
-            eval_block(Rc::new(closure_ctx), &closure.code.body)
+            eval_block(Rc::new(closure_ctx), sym_gen, &closure.code.body)
         }
         _ => panic!(
             "could not call, the following expression is not a function {:?}",
@@ -392,22 +446,31 @@ fn eval_function_invocation(ctx: Rc<Context>, invocation: &'static FunctionInvoc
     }
 }
 
-fn eval_literal(ctx: Rc<Context>, literal: &'static Literal) -> Value {
+fn eval_literal(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    literal: &'static Literal,
+) -> Value {
     match literal {
         Literal::Null => Value::Null,
         Literal::Bool(val) => Value::Bool(*val),
         Literal::Int(num) => Value::Int(*num),
         Literal::Function(func) => Value::Closure(Rc::new(Closure::new(&func, ctx.clone()))),
-        Literal::Object(obj) => literal_object(ctx, obj),
+        Literal::Object(obj) => literal_object(ctx, sym_gen, obj),
+        Literal::Symbol => sym_gen.next(),
         _ => unimplemented!("Literal type {:?}.", literal),
     }
 }
 
-fn literal_object(ctx: Rc<Context>, obj_literal: &'static ObjectLiteral) -> Value {
+fn literal_object(
+    ctx: Rc<Context>,
+    sym_gen: &mut SymbolGenerator,
+    obj_literal: &'static ObjectLiteral,
+) -> Value {
     let mut obj = Object::new();
     for (ident, expr) in obj_literal.map.iter() {
         let name = &ident.name;
-        let val = eval_expression(ctx.clone(), expr);
+        let val = eval_expression(ctx.clone(), sym_gen, expr);
         obj.add_binding(name.to_owned(), val);
     }
     Value::Object(Rc::new(obj))

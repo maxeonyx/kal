@@ -156,3 +156,24 @@ pub fn boolean_precedence() {
         val == Value::Bool(true)
     })
 }
+
+#[test]
+pub fn symbol() {
+    test_file("examples/symbol.kal", |val| {
+        val == Value::Symbol(0) // first symbol is always 0
+    })
+}
+
+#[test]
+pub fn symbol_equality() {
+    test_file("examples/symbol_equality.kal", |val| {
+        val == Value::Bool(false)
+    })
+}
+
+#[test]
+pub fn symbol_as_value() {
+    test_file("examples/symbol_as_value.kal", |val| {
+        val == Value::Symbol(1) // second symbol is always 1
+    })
+}
