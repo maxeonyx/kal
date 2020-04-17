@@ -20,160 +20,76 @@ fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
     assert!(closure(got));
 }
 
-#[test]
-pub fn empty_file() {
-    test_file("examples/empty_file.kal", |val| val == Value::Null);
+macro_rules! test {
+    {release_mode_only, $test_name:ident, $expected_val:expr } => {
+        #[cfg(not(debug_assertions))]
+        #[test]
+        pub fn $test_name() {
+            test_file(&format!("examples/{}.kal", stringify!($test_name)), |val| val == $expected_val);
+        }
+    };
+    {$test_name:ident, $expected_val:expr} => {
+        #[test]
+        pub fn $test_name() {
+            test_file(&format!("examples/{}.kal", stringify!($test_name)), |val| val == $expected_val);
+        }
+    };
 }
 
-#[test]
-pub fn let_expr_basic() {
-    test_file("examples/let_expr_basic.kal", |val| val == Value::Int(42));
+test! { empty_file, Value::Null }
+
+test! { let_expr_basic, Value::Int(42) }
+
+test! { fn_add_one, Value::Int(6) }
+
+test! { fn_nameless, Value::Int(452) }
+
+test! { fn_nested, Value::Int(4) }
+
+test! { fn_chained, Value::Int(23) }
+
+test! { fn_null, Value::Null }
+
+test! { fn_recursive_factorial, Value::Int(120) }
+
+test! { if_expression_true, Value::Int(71) }
+
+test! { if_expression_false, Value::Int(72) }
+
+test! { comparison_true, Value::Bool(true) }
+
+test! { comparison_false, Value::Bool(false) }
+
+test! { if_expression_comparison, Value::Int(0) }
+
+test! { release_mode_only, big_file, Value::Int(109621) }
+
+test! { release_mode_only, big_recursive, Value::Int(1133) }
+
+test! { object_empty, Value::Object(Rc::new(Object::new())) }
+
+test! { object_simple,
+    {
+        let mut obj = Object::new();
+        obj.add_binding("cat".to_owned(), Value::Int(1));
+        Value::Object(Rc::new(obj))
+    }
 }
 
-#[test]
-pub fn fn_add_one() {
-    test_file("examples/fn_add_one.kal", |val| val == Value::Int(6));
-}
+test! { object_access, Value::Int(2) }
 
-#[test]
-pub fn fn_nameless() {
-    test_file("examples/fn_nameless.kal", |val| val == Value::Int(452));
-}
+test! { object_nested, Value::Int(22) }
 
-#[test]
-pub fn fn_nested() {
-    test_file("examples/fn_nested.kal", |val| val == Value::Int(4))
-}
+test! { boolean_and, Value::Bool(false) }
 
-#[test]
-pub fn fn_chained() {
-    test_file("examples/fn_chained.kal", |val| val == Value::Int(23))
-}
+test! { boolean_or, Value::Bool(true) }
 
-#[test]
-pub fn fn_null() {
-    test_file("examples/fn_null.kal", |val| val == Value::Null)
-}
+test! { boolean_xor, Value::Bool(true) }
 
-#[test]
-pub fn fn_recursive_factorial() {
-    test_file("examples/fn_recursive_factorial.kal", |val| {
-        val == Value::Int(120)
-    })
-}
+test! { boolean_precedence, Value::Bool(true) }
 
-#[test]
-pub fn if_expression_true() {
-    test_file("examples/if_expression_true.kal", |val| {
-        val == Value::Int(71)
-    })
-}
+test! { symbol, Value::Symbol(0) } // first symbol is always 0
 
-#[test]
-pub fn if_expression_false() {
-    test_file("examples/if_expression_false.kal", |val| {
-        val == Value::Int(72)
-    })
-}
+test! { symbol_as_value, Value::Symbol(1) } // second symbol is always 1
 
-#[test]
-pub fn comparison_true() {
-    test_file("examples/comparison_true.kal", |val| {
-        val == Value::Bool(true)
-    })
-}
-
-#[test]
-pub fn comparison_false() {
-    test_file("examples/comparison_false.kal", |val| {
-        val == Value::Bool(false)
-    })
-}
-
-#[test]
-pub fn if_expression_comparison() {
-    test_file("examples/if_expression_comparison.kal", |val| {
-        val == Value::Int(0)
-    })
-}
-
-#[cfg(not(debug_assertions))]
-#[test]
-pub fn big_file() {
-    test_file("examples/big_file.kal", |val| val == Value::Int(109621))
-}
-
-#[cfg(not(debug_assertions))]
-#[test]
-pub fn big_recursive() {
-    test_file("examples/big_recursive.kal", |val| val == Value::Int(1133))
-}
-
-#[test]
-pub fn object_empty() {
-    test_file("examples/object_empty.kal", |val| {
-        val == Value::Object(Rc::new(Object::new()))
-    })
-}
-
-#[test]
-pub fn object_simple() {
-    let mut obj = Object::new();
-    obj.add_binding("cat".to_owned(), Value::Int(1));
-    let obj = Value::Object(Rc::new(obj));
-
-    test_file("examples/object_simple.kal", |val| val == obj)
-}
-
-#[test]
-pub fn object_access() {
-    test_file("examples/object_access.kal", |val| val == Value::Int(2))
-}
-
-#[test]
-pub fn object_nested() {
-    test_file("examples/object_nested.kal", |val| val == Value::Int(22))
-}
-
-#[test]
-pub fn boolean_and() {
-    test_file("examples/boolean_and.kal", |val| val == Value::Bool(false))
-}
-
-#[test]
-pub fn boolean_or() {
-    test_file("examples/boolean_or.kal", |val| val == Value::Bool(true))
-}
-
-#[test]
-pub fn boolean_xor() {
-    test_file("examples/boolean_xor.kal", |val| val == Value::Bool(true))
-}
-
-#[test]
-pub fn boolean_precedence() {
-    test_file("examples/boolean_precedence.kal", |val| {
-        val == Value::Bool(true)
-    })
-}
-
-#[test]
-pub fn symbol() {
-    test_file("examples/symbol.kal", |val| {
-        val == Value::Symbol(0) // first symbol is always 0
-    })
-}
-
-#[test]
-pub fn symbol_equality() {
-    test_file("examples/symbol_equality.kal", |val| {
-        val == Value::Bool(false)
-    })
-}
-
-#[test]
-pub fn symbol_as_value() {
-    test_file("examples/symbol_as_value.kal", |val| {
-        val == Value::Symbol(1) // second symbol is always 1
-    })
-}
+test! { symbol_equality, Value::Bool(false) }
