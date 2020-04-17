@@ -8,37 +8,28 @@ use crate::ast::{
 
 pub mod types {
     use crate::ast::Function;
-    use gc::{custom_trace, Finalize, Gc};
-    use gc_derive::Trace;
     use std::collections::HashMap;
+    use std::rc::Rc;
 
-    #[derive(Debug, Clone, PartialEq, Trace)]
+    #[derive(Debug, Clone, PartialEq)]
     pub enum Value {
         Null,
         Bool(bool),
-        Str(Gc<String>),
+        Str(Rc<String>),
         Int(i64),
-        List(Gc<Vec<Value>>),
-        Object(Gc<Object>),
-        Closure(Gc<Closure>),
+        List(Rc<Vec<Value>>),
+        Object(Rc<Object>),
+        Closure(Rc<Closure>),
     }
 
-    impl Finalize for Value {
-        fn finalize(&self) {}
-    }
-
-    #[derive(Debug, Clone, Trace)]
+    #[derive(Debug, Clone)]
     pub struct Closure {
         pub code: &'static Function,
-        pub parent_ctx: Gc<Context>,
-    }
-
-    impl Finalize for Closure {
-        fn finalize(&self) {}
+        pub parent_ctx: Rc<Context>,
     }
 
     impl Closure {
-        pub fn new(code: &'static Function, parent_ctx: Gc<Context>) -> Self {
+        pub fn new(code: &'static Function, parent_ctx: Rc<Context>) -> Self {
             Closure {
                 code: code,
                 parent_ctx,
@@ -55,18 +46,6 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq)]
     pub struct Object {
         inner: HashMap<String, Value>,
-    }
-
-    unsafe impl gc::Trace for Object {
-        custom_trace!(this, {
-            for val in this.inner.values() {
-                mark(val);
-            }
-        });
-    }
-
-    impl Finalize for Object {
-        fn finalize(&self) {}
     }
 
     impl Object {
@@ -92,14 +71,10 @@ pub mod types {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Trace)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct Context {
-        parent: Option<Gc<Context>>,
+        parent: Option<Rc<Context>>,
         scope: Object,
-    }
-
-    impl Finalize for Context {
-        fn finalize(&self) {}
     }
 
     impl Context {
@@ -110,7 +85,7 @@ pub mod types {
             }
         }
 
-        pub fn extend(ctx: Gc<Self>) -> Self {
+        pub fn extend(ctx: Rc<Self>) -> Self {
             Context {
                 parent: Some(ctx),
                 scope: Object::new(),
@@ -149,21 +124,21 @@ pub mod types {
 }
 
 use self::types::*;
-use gc::Gc;
+use std::rc::Rc;
 
 pub fn eval(ast: &'static Block) -> Value {
-    let ctx = Gc::new(Context::new());
+    let ctx = Rc::new(Context::new());
 
     eval_block(ctx, ast)
 }
 
-fn eval_block(ctx: Gc<Context>, block: &'static Block) -> Value {
+fn eval_block(ctx: Rc<Context>, block: &'static Block) -> Value {
     let mut ctx = Context::extend(ctx);
     for statement in block.statements.iter() {
         match statement {
             Statement::Let(let_statement) => {
                 let LetStatement { variable, expr } = let_statement;
-                let ctx_before_let = Gc::new(ctx);
+                let ctx_before_let = Rc::new(ctx);
                 let value = eval_expression(ctx_before_let.clone(), expr);
 
                 ctx = Context::extend(ctx_before_let);
@@ -172,10 +147,10 @@ fn eval_block(ctx: Gc<Context>, block: &'static Block) -> Value {
         }
     }
 
-    eval_expression(Gc::new(ctx), &block.expression)
+    eval_expression(Rc::new(ctx), &block.expression)
 }
 
-fn eval_expression(ctx: Gc<Context>, expr: &'static Expression) -> Value {
+fn eval_expression(ctx: Rc<Context>, expr: &'static Expression) -> Value {
     match expr {
         Expression::Literal(literal) => eval_literal(ctx, literal),
         Expression::FunctionInvocation(func_invo) => eval_function_invocation(ctx, func_invo),
@@ -189,7 +164,7 @@ fn eval_expression(ctx: Gc<Context>, expr: &'static Expression) -> Value {
     }
 }
 
-fn eval_not(ctx: Gc<Context>, not_expr: &'static NotExpression) -> Value {
+fn eval_not(ctx: Rc<Context>, not_expr: &'static NotExpression) -> Value {
     let NotExpression { expr } = not_expr;
 
     let val = eval_expression(ctx, expr);
@@ -204,7 +179,7 @@ fn eval_not(ctx: Gc<Context>, not_expr: &'static NotExpression) -> Value {
     Value::Bool(!val)
 }
 
-fn eval_bool(ctx: Gc<Context>, bool_expr: &'static BooleanExpression) -> Value {
+fn eval_bool(ctx: Rc<Context>, bool_expr: &'static BooleanExpression) -> Value {
     let BooleanExpression {
         left,
         right,
@@ -269,7 +244,7 @@ fn eval_bool(ctx: Gc<Context>, bool_expr: &'static BooleanExpression) -> Value {
     }
 }
 
-fn eval_dot(ctx: Gc<Context>, dot_expr: &'static DotExpression) -> Value {
+fn eval_dot(ctx: Rc<Context>, dot_expr: &'static DotExpression) -> Value {
     let DotExpression { base, prop } = dot_expr;
 
     let base = eval_expression(ctx.clone(), base);
@@ -283,7 +258,7 @@ fn eval_dot(ctx: Gc<Context>, dot_expr: &'static DotExpression) -> Value {
     }
 }
 
-fn eval_comparison(ctx: Gc<Context>, comparison: &'static ComparisonExpression) -> Value {
+fn eval_comparison(ctx: Rc<Context>, comparison: &'static ComparisonExpression) -> Value {
     let ComparisonExpression {
         left,
         right,
@@ -328,7 +303,7 @@ fn compare<T: std::cmp::Eq + std::cmp::PartialOrd>(
     }
 }
 
-fn eval_if(ctx: Gc<Context>, if_expr: &'static IfExpression) -> Value {
+fn eval_if(ctx: Rc<Context>, if_expr: &'static IfExpression) -> Value {
     let IfExpression {
         cond,
         body,
@@ -355,11 +330,11 @@ fn eval_if(ctx: Gc<Context>, if_expr: &'static IfExpression) -> Value {
     }
 }
 
-fn eval_ident(ctx: Gc<Context>, ident: &Ident) -> Value {
+fn eval_ident(ctx: Rc<Context>, ident: &Ident) -> Value {
     ctx.resolve_name(&ident.name)
 }
 
-fn eval_numeric(ctx: Gc<Context>, expr: &'static NumericExpression) -> Value {
+fn eval_numeric(ctx: Rc<Context>, expr: &'static NumericExpression) -> Value {
     let NumericExpression {
         left,
         right,
@@ -384,7 +359,7 @@ fn eval_numeric(ctx: Gc<Context>, expr: &'static NumericExpression) -> Value {
     }
 }
 
-fn eval_function_invocation(ctx: Gc<Context>, invocation: &'static FunctionInvocation) -> Value {
+fn eval_function_invocation(ctx: Rc<Context>, invocation: &'static FunctionInvocation) -> Value {
     let val = eval_expression(ctx.clone(), &invocation.closure_expression);
 
     match val {
@@ -408,7 +383,7 @@ fn eval_function_invocation(ctx: Gc<Context>, invocation: &'static FunctionInvoc
                 closure_ctx.add_binding(name.to_owned(), val);
             }
 
-            eval_block(Gc::new(closure_ctx), &closure.code.body)
+            eval_block(Rc::new(closure_ctx), &closure.code.body)
         }
         _ => panic!(
             "could not call, the following expression is not a function {:?}",
@@ -417,23 +392,23 @@ fn eval_function_invocation(ctx: Gc<Context>, invocation: &'static FunctionInvoc
     }
 }
 
-fn eval_literal(ctx: Gc<Context>, literal: &'static Literal) -> Value {
+fn eval_literal(ctx: Rc<Context>, literal: &'static Literal) -> Value {
     match literal {
         Literal::Null => Value::Null,
         Literal::Bool(val) => Value::Bool(*val),
         Literal::Int(num) => Value::Int(*num),
-        Literal::Function(func) => Value::Closure(Gc::new(Closure::new(&func, ctx.clone()))),
+        Literal::Function(func) => Value::Closure(Rc::new(Closure::new(&func, ctx.clone()))),
         Literal::Object(obj) => literal_object(ctx, obj),
         _ => unimplemented!("Literal type {:?}.", literal),
     }
 }
 
-fn literal_object(ctx: Gc<Context>, obj_literal: &'static ObjectLiteral) -> Value {
+fn literal_object(ctx: Rc<Context>, obj_literal: &'static ObjectLiteral) -> Value {
     let mut obj = Object::new();
     for (ident, expr) in obj_literal.map.iter() {
         let name = &ident.name;
         let val = eval_expression(ctx.clone(), expr);
         obj.add_binding(name.to_owned(), val);
     }
-    Value::Object(Gc::new(obj))
+    Value::Object(Rc::new(obj))
 }

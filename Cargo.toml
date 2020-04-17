@@ -8,8 +8,6 @@ build = "build.rs" # LALRPOP preprocessing
 [dependencies]
 lalrpop-util = "0.18.1"
 regex = "0.2.0"
-gc = "*"
-gc_derive = "*"
 
 [build-dependencies]
 lalrpop = { version = "0.18.1", features = ["lexer"] }

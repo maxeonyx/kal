@@ -1,8 +1,5 @@
 use std::collections::HashMap;
 
-use gc::Finalize;
-use gc_derive::Trace;
-
 #[derive(Debug)]
 pub enum Statement {
     Let(LetStatement),
@@ -102,17 +99,10 @@ pub enum Literal {
     Function(Function),
 }
 
-#[derive(Debug, Trace)]
+#[derive(Debug)]
 pub struct Function {
-    #[unsafe_ignore_trace]
     pub parameters: Vec<Ident>,
-
-    #[unsafe_ignore_trace]
     pub body: Block,
-}
-
-impl Finalize for Function {
-    fn finalize(&self) {}
 }
 
 #[derive(Debug)]
