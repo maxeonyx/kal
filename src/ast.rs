@@ -90,6 +90,7 @@ pub struct NumericExpression {
 
 #[derive(Debug)]
 pub struct LetStatement {
+    pub mutable: bool,
     pub variable: Ident,
     pub expr: Box<Expression>,
 }

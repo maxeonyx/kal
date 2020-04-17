@@ -10,17 +10,22 @@ use crate::ast::{
 pub mod types {
     use crate::ast::Function;
     use std::collections::HashMap;
-    use std::rc::Rc;
+    use std::{cell::RefCell, rc::Rc};
+
+    pub enum Binding {
+        Immutable(Value),
+        Mutable(Value),
+    }
 
     #[derive(Debug, Clone, PartialEq)]
     pub enum Value {
         Null,
         Bool(bool),
-        Str(Rc<String>),
+        Str(Rc<RefCell<String>>),
         Int(i64),
-        List(Rc<Vec<Value>>),
-        Object(Rc<Object>),
-        Closure(Rc<Closure>),
+        List(Rc<RefCell<Vec<Value>>>),
+        Object(Rc<RefCell<Object>>),
+        Closure(Rc<RefCell<Closure>>),
         Symbol(u64),
     }
 
@@ -156,7 +161,11 @@ fn eval_block(ctx: Rc<Context>, sym_gen: &mut SymbolGenerator, block: &'static B
     for statement in block.statements.iter() {
         match statement {
             Statement::Let(let_statement) => {
-                let LetStatement { variable, expr } = let_statement;
+                let LetStatement {
+                    variable,
+                    expr,
+                    mutable,
+                } = let_statement;
                 let ctx_before_let = Rc::new(ctx);
                 let value = eval_expression(ctx_before_let.clone(), sym_gen, expr);
 
