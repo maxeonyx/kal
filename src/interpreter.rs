@@ -21,11 +21,11 @@ pub mod types {
     pub enum Value {
         Null,
         Bool(bool),
-        Str(Rc<RefCell<String>>),
+        Str(Rc<String>),
         Int(i64),
-        List(Rc<RefCell<Vec<Value>>>),
-        Object(Rc<RefCell<Object>>),
-        Closure(Rc<RefCell<Closure>>),
+        List(Rc<Vec<Value>>),
+        Object(Rc<Object>),
+        Closure(Rc<Closure>),
         Symbol(u64),
     }
 

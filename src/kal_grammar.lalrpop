@@ -200,11 +200,17 @@ FunctionBody: Block = {
 }
 
 LetStatement: LetStatement = {
-    "let" <i:Ident> "=" <e:Expression> =>
+    "let" <m:Mut> <i:Ident> "=" <e:Expression> =>
     LetStatement {
+        mutable: m,
         variable: i,
         expr: Box::new(e),
     },
+}
+
+Mut: bool = {
+    => false,
+    "mut" => true,
 }
 
 IfExpression: IfExpression = {

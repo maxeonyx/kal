@@ -1,0 +1,5 @@
+let mut obj = {
+    num_cats: 0,
+};
+obj.num_cats = 1;
+obj.num_cats
