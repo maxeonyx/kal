@@ -96,9 +96,14 @@ pub struct LetStatement {
 
 #[derive(Debug)]
 pub struct IfExpression {
-    pub cond: Box<Expression>,
-    pub body: Block,
+    pub ifs: Vec<IfPart>,
     pub else_body: Option<Block>,
+}
+
+#[derive(Debug)]
+pub struct IfPart {
+    pub cond: Expression,
+    pub body: Block,
 }
 
 #[derive(Debug)]

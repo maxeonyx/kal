@@ -55,15 +55,19 @@ test! { fn_null, Value::Null }
 
 test! { fn_recursive_factorial, Value::Int(120) }
 
-test! { if_expression_true, Value::Int(71) }
+test! { if_true, Value::Int(71) }
 
-test! { if_expression_false, Value::Int(72) }
+test! { if_false, Value::Int(72) }
+
+test! { if_comparison, Value::Int(0) }
+
+test! { if_else_if, Value::Int(77) }
+
+test! { if_without_else, Value::Null }
 
 test! { comparison_true, Value::Bool(true) }
 
 test! { comparison_false, Value::Bool(false) }
-
-test! { if_expression_comparison, Value::Int(0) }
 
 test! { release_mode_only, big_file, Value::Int(109621) }
 

@@ -208,13 +208,26 @@ LetStatement: LetStatement = {
 }
 
 IfExpression: IfExpression = {
-    "if" <c:Expression> <b:Block> <eb:ElseBody?> =>
+    "if" <c:Expression> <b:Block> <else_ifs:ElseIf*> <eb:ElseBody?> =>
+    {
+        let mut if_parts = else_ifs;
+        if_parts.insert(0, IfPart { 
+            cond: c,
+            body: b,
+        });
+        IfExpression {
+            ifs: if_parts, 
+            else_body: eb
+        }
+    }
+}
 
-    IfExpression {
-        cond: Box::new(c),
-        body: b,
-        else_body: eb
-    },
+ElseIf: IfPart = {
+    "else" "if" <c:Expression> <b:Block> =>
+        IfPart {
+            cond: c,
+            body: b,
+        }
 }
 
 ElseBody: Block = {

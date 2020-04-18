@@ -2,7 +2,7 @@ use crate::ast::BooleanExpression;
 use crate::ast::NotExpression;
 use crate::ast::{
     Block, BooleanOperator, ComparisonExpression, ComparisonOperator, DotExpression, Expression,
-    FunctionInvocation, Ident, IfExpression, IndexExpression, LetStatement, ListLiteral,
+    FunctionInvocation, Ident, IfExpression, IfPart, IndexExpression, LetStatement, ListLiteral,
     ListLiteralElem, Literal, NegativeExpression, NumericExpression, NumericOperator,
     ObjectLiteral, Statement,
 };
@@ -424,30 +424,32 @@ fn eval_if(
     sym_gen: &mut SymbolGenerator,
     if_expr: &'static IfExpression,
 ) -> Value {
-    let IfExpression {
-        cond,
-        body,
-        else_body,
-    } = if_expr;
+    let IfExpression { ifs, else_body } = if_expr;
 
-    let val = eval_expression(ctx.clone(), sym_gen, &cond);
-    let val = match val {
-        Value::Bool(val) => val,
-        _ => panic!(
-            "Conditional evaled to {:?} instead of a boolean: {:?}.",
-            val, &cond
-        ),
-    };
+    // evaluate the initial if and any else ifs
+    for if_part in ifs.iter() {
+        let IfPart { cond, body } = if_part;
+        let val = eval_expression(ctx.clone(), sym_gen, &cond);
+        let val = match val {
+            Value::Bool(val) => val,
+            _ => panic!(
+                "Conditional evaled to {:?} instead of a boolean: {:?}.",
+                val, &cond
+            ),
+        };
 
-    if val {
-        eval_block(ctx.clone(), sym_gen, body)
-    } else {
-        if let Some(else_block) = else_body {
-            eval_block(ctx.clone(), sym_gen, else_block)
-        } else {
-            Value::Null
+        if val {
+            return eval_block(ctx.clone(), sym_gen, body);
         }
     }
+
+    // if there is an else block, evaluate it
+    if let Some(else_block) = else_body {
+        return eval_block(ctx.clone(), sym_gen, else_block);
+    }
+
+    // if none of the conditions were met, and there is no else block, the if expression evaluates to null.
+    Value::Null
 }
 
 fn eval_ident(ctx: Rc<Context>, ident: &Ident) -> Value {
