@@ -138,7 +138,13 @@ pub struct ObjectLiteral {
 
 #[derive(Debug)]
 pub struct ListLiteral {
-    pub elements: Vec<Expression>,
+    pub elements: Vec<ListLiteralElem>,
+}
+
+#[derive(Debug)]
+pub enum ListLiteralElem {
+    Spread(Expression),
+    Elem(Expression),
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]

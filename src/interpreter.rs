@@ -2,8 +2,9 @@ use crate::ast::BooleanExpression;
 use crate::ast::NotExpression;
 use crate::ast::{
     Block, BooleanOperator, ComparisonExpression, ComparisonOperator, DotExpression, Expression,
-    FunctionInvocation, Ident, IfExpression, IndexExpression, LetStatement, ListLiteral, Literal,
-    NegativeExpression, NumericExpression, NumericOperator, ObjectLiteral, Statement,
+    FunctionInvocation, Ident, IfExpression, IndexExpression, LetStatement, ListLiteral,
+    ListLiteralElem, Literal, NegativeExpression, NumericExpression, NumericOperator,
+    ObjectLiteral, Statement,
 };
 
 pub mod types {
@@ -542,9 +543,25 @@ fn literal_list(
     list_literal: &'static ListLiteral,
 ) -> Value {
     let mut list = Vec::with_capacity(list_literal.elements.len());
-    for expr in list_literal.elements.iter() {
-        let val = eval_expression(ctx.clone(), sym_gen, expr);
-        list.push(val);
+    for elem in list_literal.elements.iter() {
+        match elem {
+            ListLiteralElem::Elem(expr) => {
+                let val = eval_expression(ctx.clone(), sym_gen, expr);
+                list.push(val);
+            }
+            ListLiteralElem::Spread(expr) => {
+                let val = eval_expression(ctx.clone(), sym_gen, expr);
+                match val {
+                    Value::List(l) => {
+                        list.reserve(l.len());
+                        for elem in l.iter() {
+                            list.push(elem.clone());
+                        }
+                    }
+                    _ => panic!("Cannot spread {:?} into a list.", val),
+                }
+            }
+        }
     }
     Value::List(Rc::new(list))
 }

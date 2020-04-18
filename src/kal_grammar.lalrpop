@@ -242,11 +242,16 @@ Literal: Literal = {
 }
 
 List: ListLiteral = {
-    "[" <v:Comma<Expression>> "]" =>
+    "[" <v:Comma<ListLiteralElem>> "]" =>
 
     ListLiteral {
         elements: v,
     },
+}
+
+ListLiteralElem: ListLiteralElem = {
+    <e:Expression> => ListLiteralElem::Elem(e),
+    "..." <se:SimpleExpression> => ListLiteralElem::Spread(se),
 }
 
 Object: ObjectLiteral = {
