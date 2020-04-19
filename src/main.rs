@@ -8,6 +8,8 @@ pub mod interpreter;
 #[cfg(test)]
 mod tests;
 
+mod kal_ref;
+
 fn main() {
     let ast = kal_grammar::BlockInnerParser::new()
         .parse(include_str!("../examples/boolean_precedence.kal"))
