@@ -13,11 +13,6 @@ pub mod types {
     use crate::{ast::Function, kal_ref::KalRef};
     use std::collections::HashMap;
 
-    pub enum Binding {
-        Immutable(Value),
-        Mutable(Value),
-    }
-
     #[derive(Debug, Clone, PartialEq)]
     pub enum Value {
         Null,
@@ -98,43 +93,37 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq)]
     pub struct Context {
         parent: Option<KalRef<Context>>,
-        scope: Object,
+        scope: HashMap<String, Value>,
     }
 
     impl Context {
         pub fn new() -> Self {
             Context {
                 parent: None,
-                scope: Object::new(),
+                scope: HashMap::new(),
             }
         }
 
         pub fn extend(ctx: KalRef<Self>) -> Self {
             Context {
                 parent: Some(ctx),
-                scope: Object::new(),
+                scope: HashMap::new(),
             }
         }
 
-        pub fn pop_scope(self) {}
-
         pub fn add_binding(&mut self, k: String, v: Value) {
-            self.scope.add_binding(k, v);
+            self.scope.insert(k, v);
         }
 
         pub fn remove_binding(&mut self, k: String) {
-            self.scope.remove_binding(k);
-        }
-
-        pub fn current_scope(&self) -> &Object {
-            &self.scope
+            self.scope.remove(&k);
         }
 
         pub fn resolve_name(&self, name: &str) -> Value {
             let mut ctx = self;
             loop {
-                if ctx.current_scope().inner.contains_key(name) {
-                    return ctx.current_scope().inner.get(name).unwrap().clone();
+                if ctx.scope.contains_key(name) {
+                    return ctx.scope.get(name).unwrap().clone();
                 }
                 if let Some(ref parent) = ctx.parent {
                     ctx = parent;
