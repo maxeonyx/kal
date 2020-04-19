@@ -125,3 +125,7 @@ test! { num_negative_subtraction, Value::Int(14) }
 test! { num_division, Value::Int(2) }
 
 test! { mut_num, Value::Int(2) }
+
+test! { mut_multi_let, Value::Int(999) }
+
+test! { mut_increment, Value::Int(61) }

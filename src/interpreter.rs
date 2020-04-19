@@ -83,40 +83,31 @@ pub mod types {
             self.scope.insert(k, v);
         }
 
-        pub fn get_location(&mut self, k: &str) -> &mut Value {
-            self.scope.get_mut(k).unwrap()
-        }
-
-        // pub fn resolve_location(&mut self, k: &str) -> &mut Value {
-        //     let mut ctx = self;
-        //     loop {
-        //         match ctx.scope.get_mut(k) {
-        //             Some(location) => return location,
-        //             None => {
-        //                 if let Some(parent) = ctx.parent {
-        //                     ctx
-        //                 }
-        //             }
-        //         }
-        //     }
-        //     self.scope
-        //         .get_mut(k)
-        //         .unwrap_or_else(|| panic!("{:?} is not a variable", k))
-        // }
-
-        pub fn resolve_name(&self, name: &str) -> Value {
+        pub fn resolve_location(&mut self, k: &str) -> &mut Value {
             let mut ctx = self;
             loop {
-                if ctx.scope.contains_key(name) {
-                    return ctx.scope.get(name).unwrap().clone();
+                if ctx.scope.contains_key(k) {
+                    return ctx.scope.get_mut(k).unwrap();
                 }
-                if let Some(ref parent) = ctx.parent {
-                    ctx = parent;
-                } else {
-                    break;
+                let parent = ctx.parent.as_mut().unwrap_or_else(|| {
+                    panic!("Can't resolve location of {:?}. it doesn't exist.", k)
+                });
+                let parent_ref = parent.borrow_mut().unwrap_or_else(|| panic!("Couldn't resolve location of {:?}. It may or may not exist but we can't borrow it mutably.", k));
+                ctx = parent_ref;
+            }
+        }
+
+        pub fn resolve_name(&self, k: &str) -> Value {
+            let mut ctx = self;
+            loop {
+                match ctx.scope.get(k) {
+                    Some(value) => return value.clone(),
+                    None => match &ctx.parent {
+                        Some(parent) => ctx = &*parent,
+                        None => panic!("Could not resolve name {:?}", k),
+                    },
                 }
             }
-            panic!("Could not resolve name {:?}", name);
         }
     }
 }
@@ -181,7 +172,7 @@ fn eval_location_ident<'location>(
     ctx: &'location mut Context,
     ident: &'static Ident,
 ) -> &'location mut Value {
-    ctx.get_location(&ident.name)
+    ctx.resolve_location(&ident.name)
 }
 
 fn eval_expression(
