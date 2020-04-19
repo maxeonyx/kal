@@ -9,12 +9,19 @@ use std::{
 // cycles among other things.
 
 // It acts like Rc, and allows aliasing via clone()
-// If you have a mutable KalRef, you can ask to get a mutable ref to the value. This might not succeed,
-// since there can still be other
+// If you have a mutable KalRef, you can ask to get a mutable ref to the value. This will not succeed,
+// if there are other KalRefs to this value.
 
-/////////////////////////////////////
+// There cannot be more than one mutable reference given out by this type.
+// We only give a mutable reference when ref_count == 1. Therefore, we will not return a mutable ref
+// if there are any other KalRefs to this value before calling borrow_mut.
+// And, because we require a mutable reference, clone() cannot be called on this KalRef until the mutable
+// ref has been released. Rust's borrow checker will prevent it, because clone() would require taking
+// another reference.
+
+////////////////////////////////////
 ///   Public API
-/////////////////////////////////////
+////////////////////////////////////
 pub struct KalRef<T> {
     // Pointer is always valid and non-null
     //
@@ -26,7 +33,7 @@ pub struct KalRef<T> {
     // 5. When we drop a copy of the pointer, we decrease the ref-count.
     // 6. From 3. and 4., the ref-count is always the same as the number of copies out there.
     // 7. We only drop the KalRefInner when the ref-count is 0.
-    // 8. From 7., the pointer is never dangling.
+    // 8. From 6. and 7., no pointers are ever dangling.
     ptr: *mut KalRefInner<T>,
 }
 
@@ -49,9 +56,9 @@ impl<T> KalRef<T> {
     }
 }
 
-/////////////////////////////////////
+////////////////////////////////////
 ///   Public impls
-/////////////////////////////////////
+////////////////////////////////////
 impl<T> Clone for KalRef<T> {
     fn clone(&self) -> Self {
         *self.ref_count() += 1;
@@ -87,9 +94,9 @@ impl<T: Debug> Debug for KalRef<T> {
     }
 }
 
-/////////////////////////////////////
+////////////////////////////////////
 ///   Private implementation details
-/////////////////////////////////////
+////////////////////////////////////
 impl<T> KalRef<T> {
     fn ref_count(&self) -> &mut u64 {
         unsafe { &mut (*self.ptr).ref_count }
