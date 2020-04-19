@@ -217,12 +217,12 @@ IfExpression: IfExpression = {
     "if" <c:Expression> <b:Block> <else_ifs:ElseIf*> <eb:ElseBody?> =>
     {
         let mut if_parts = else_ifs;
-        if_parts.insert(0, IfPart { 
+        if_parts.insert(0, IfPart {
             cond: c,
             body: b,
         });
         IfExpression {
-            ifs: if_parts, 
+            ifs: if_parts,
             else_body: eb
         }
     }

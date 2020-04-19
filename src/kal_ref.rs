@@ -47,8 +47,9 @@ impl<T> KalRef<T> {
         }
     }
 
+    #[allow(unused)]
     pub fn borrow_mut(&mut self) -> Option<&mut T> {
-        if *self.ref_count() > 1 {
+        if self.ref_count() > 1 {
             None
         } else {
             Some(unsafe { &mut (*self.ptr).value })
@@ -61,7 +62,7 @@ impl<T> KalRef<T> {
 ////////////////////////////////////
 impl<T> Clone for KalRef<T> {
     fn clone(&self) -> Self {
-        *self.ref_count() += 1;
+        self.inc_ref_count();
         Self { ptr: self.ptr }
     }
 }
@@ -98,15 +99,25 @@ impl<T: Debug> Debug for KalRef<T> {
 ///   Private implementation details
 ////////////////////////////////////
 impl<T> KalRef<T> {
-    fn ref_count(&self) -> &mut u64 {
-        unsafe { &mut (*self.ptr).ref_count }
+    fn ref_count(&self) -> u64 {
+        unsafe { (*self.ptr).ref_count }
+    }
+    fn inc_ref_count(&self) {
+        unsafe {
+            (*self.ptr).ref_count += 1;
+        }
+    }
+    fn dec_ref_count(&self) {
+        unsafe {
+            (*self.ptr).ref_count -= 1;
+        }
     }
 }
 
 impl<T> Drop for KalRef<T> {
     fn drop(&mut self) {
-        *self.ref_count() -= 1;
-        if *self.ref_count() == 0 {
+        self.dec_ref_count();
+        if self.ref_count() == 0 {
             unsafe { std::ptr::drop_in_place(self.ptr) }
         }
     }

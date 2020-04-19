@@ -1,9 +1,10 @@
 #[macro_use]
 extern crate lalrpop_util;
 
-pub mod ast;
-lalrpop_mod!(pub kal_grammar);
-pub mod interpreter;
+mod ast;
+
+lalrpop_mod!(#[allow(clippy::all)] pub kal_grammar);
+mod interpreter;
 
 #[cfg(test)]
 mod tests;

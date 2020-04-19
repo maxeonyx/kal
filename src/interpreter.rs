@@ -17,7 +17,6 @@ pub mod types {
     pub enum Value {
         Null,
         Bool(bool),
-        Str(KalRef<String>),
         Int(i64),
         List(KalRef<Vec<Value>>),
         Object(KalRef<Object>),
@@ -34,7 +33,7 @@ pub mod types {
             SymbolGenerator { counter: 0 }
         }
 
-        pub fn next(&mut self) -> Value {
+        pub fn gen(&mut self) -> Value {
             let n = self.counter;
             self.counter += 1;
             Value::Symbol(n)
@@ -49,10 +48,7 @@ pub mod types {
 
     impl Closure {
         pub fn new(code: &'static Function, parent_ctx: KalRef<Context>) -> Self {
-            Closure {
-                code: code,
-                parent_ctx,
-            }
+            Closure { code, parent_ctx }
         }
     }
 
@@ -76,10 +72,6 @@ pub mod types {
 
         pub fn add_binding(&mut self, k: String, v: Value) {
             self.inner.insert(k, v);
-        }
-
-        pub fn remove_binding(&mut self, k: String) {
-            self.inner.remove(&k);
         }
 
         pub fn get(&self, k: &str) -> Value {
@@ -115,10 +107,6 @@ pub mod types {
             self.scope.insert(k, v);
         }
 
-        pub fn remove_binding(&mut self, k: String) {
-            self.scope.remove(&k);
-        }
-
         pub fn resolve_name(&self, name: &str) -> Value {
             let mut ctx = self;
             loop {
@@ -150,11 +138,7 @@ fn eval_block(ctx: KalRef<Context>, sym_gen: &mut SymbolGenerator, block: &'stat
     for statement in block.statements.iter() {
         match statement {
             Statement::Let(let_statement) => {
-                let LetStatement {
-                    variable,
-                    expr,
-                    mutable,
-                } = let_statement;
+                let LetStatement { variable, expr, .. } = let_statement;
                 let ctx_before_let = KalRef::new(ctx);
                 let value = eval_expression(ctx_before_let.clone(), sym_gen, expr);
 
@@ -253,7 +237,7 @@ fn eval_bool(
             if !left {
                 Value::Bool(false)
             } else {
-                let right = eval_expression(ctx.clone(), sym_gen, right);
+                let right = eval_expression(ctx, sym_gen, right);
                 let right = match right {
                     Value::Bool(i) => i,
                     _ => panic!("Cant compare, right side not a bool: {:?}.", bool_expr),
@@ -273,7 +257,7 @@ fn eval_bool(
             if left {
                 Value::Bool(true)
             } else {
-                let right = eval_expression(ctx.clone(), sym_gen, right);
+                let right = eval_expression(ctx, sym_gen, right);
                 let right = match right {
                     Value::Bool(i) => i,
                     _ => panic!("Cant compare, right side not a bool: {:?}.", bool_expr),
@@ -288,7 +272,7 @@ fn eval_bool(
                 Value::Bool(i) => i,
                 _ => panic!("Cant compare, left side not a bool: {:?}.", bool_expr),
             };
-            let right = eval_expression(ctx.clone(), sym_gen, right);
+            let right = eval_expression(ctx, sym_gen, right);
             let right = match right {
                 Value::Bool(i) => i,
                 _ => panic!("Cant compare, right side not a bool: {:?}.", bool_expr),
@@ -306,10 +290,10 @@ fn eval_dot(
 ) -> Value {
     let DotExpression { base, prop } = dot_expr;
 
-    let base = eval_expression(ctx.clone(), sym_gen, base);
+    let base = eval_expression(ctx, sym_gen, base);
 
     match base {
-        Value::Object(ref obj) => obj.get(&prop.name).clone(),
+        Value::Object(ref obj) => obj.get(&prop.name),
         _ => panic!(
             "Tried to use dot expression on {:?} from {:?}",
             base, dot_expr
@@ -377,12 +361,11 @@ fn eval_comparison(
         operator,
     } = comparison;
     let left = eval_expression(ctx.clone(), sym_gen, left);
-    let right = eval_expression(ctx.clone(), sym_gen, right);
+    let right = eval_expression(ctx, sym_gen, right);
 
     let result = match (operator, &left, &right) {
         (operator, Value::Bool(left), Value::Bool(right)) => compare(operator, left, right),
         (operator, Value::Int(left), Value::Int(right)) => compare(operator, left, right),
-        (operator, Value::Str(left), Value::Str(right)) => compare(operator, left, right),
         (ComparisonOperator::Equal, Value::Symbol(left), Value::Symbol(right)) => left == right,
         (ComparisonOperator::NotEqual, Value::Symbol(left), Value::Symbol(right)) => left != right,
         (ComparisonOperator::Equal, Value::Null, Value::Null) => true,
@@ -437,13 +420,13 @@ fn eval_if(
         };
 
         if val {
-            return eval_block(ctx.clone(), sym_gen, body);
+            return eval_block(ctx, sym_gen, body);
         }
     }
 
     // if there is an else block, evaluate it
     if let Some(else_block) = else_body {
-        return eval_block(ctx.clone(), sym_gen, else_block);
+        return eval_block(ctx, sym_gen, else_block);
     }
 
     // if none of the conditions were met, and there is no else block, the if expression evaluates to null.
@@ -465,7 +448,7 @@ fn eval_numeric(
         operator,
     } = expr;
     let left = eval_expression(ctx.clone(), sym_gen, left);
-    let right = eval_expression(ctx.clone(), sym_gen, right);
+    let right = eval_expression(ctx, sym_gen, right);
     let left = match left {
         Value::Int(i) => i,
         _ => panic!("Cant add, left side not an Int: {:?}.", expr),
@@ -529,9 +512,9 @@ fn eval_literal(
         Literal::Null => Value::Null,
         Literal::Bool(val) => Value::Bool(*val),
         Literal::Int(num) => Value::Int(*num),
-        Literal::Function(func) => Value::Closure(KalRef::new(Closure::new(&func, ctx.clone()))),
+        Literal::Function(func) => Value::Closure(KalRef::new(Closure::new(&func, ctx))),
         Literal::Object(obj) => literal_object(ctx, sym_gen, obj),
-        Literal::Symbol => sym_gen.next(),
+        Literal::Symbol => sym_gen.gen(),
         Literal::List(list) => literal_list(ctx, sym_gen, list),
         _ => unimplemented!("Literal type {:?}.", literal),
     }
