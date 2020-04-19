@@ -2,7 +2,7 @@ use crate::interpreter::{
     eval,
     types::{Object, Value},
 };
-use std::rc::Rc;
+use crate::kal_ref::KalRef;
 
 #[allow(dead_code)]
 fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
@@ -73,13 +73,13 @@ test! { release_mode_only, big_file, Value::Int(109621) }
 
 test! { release_mode_only, big_recursive, Value::Int(1133) }
 
-test! { object_empty, Value::Object(Rc::new(Object::new())) }
+test! { object_empty, Value::Object(KalRef::new(Object::new())) }
 
 test! { object_simple,
     {
         let mut obj = Object::new();
         obj.add_binding("cat".to_owned(), Value::Int(1));
-        Value::Object(Rc::new(obj))
+        Value::Object(KalRef::new(obj))
     }
 }
 
@@ -103,13 +103,13 @@ test! { symbol_equality, Value::Bool(false) }
 
 test! { trailing_commas, Value::Int(2) }
 
-test! { list, Value::List(Rc::new(vec![Value::Int(1), Value::Int(2), Value::Int(3)])) }
+test! { list, Value::List(KalRef::new(vec![Value::Int(1), Value::Int(2), Value::Int(3)])) }
 
 test! { list_index, Value::Int(29) }
 
 test! { list_negative_index, Value::Int(53) }
 
-test! { list_spread, Value::List(Rc::new(vec![Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4), Value::Int(5), Value::Int(6)])) }
+test! { list_spread, Value::List(KalRef::new(vec![Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4), Value::Int(5), Value::Int(6)])) }
 
 test! { int, Value::Int(5) }
 

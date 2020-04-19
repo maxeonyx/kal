@@ -7,10 +7,11 @@ use crate::ast::{
     ObjectLiteral, Statement,
 };
 
+use crate::kal_ref::KalRef;
+
 pub mod types {
-    use crate::ast::Function;
+    use crate::{ast::Function, kal_ref::KalRef};
     use std::collections::HashMap;
-    use std::{cell::RefCell, rc::Rc};
 
     pub enum Binding {
         Immutable(Value),
@@ -21,11 +22,11 @@ pub mod types {
     pub enum Value {
         Null,
         Bool(bool),
-        Str(Rc<String>),
+        Str(KalRef<String>),
         Int(i64),
-        List(Rc<Vec<Value>>),
-        Object(Rc<Object>),
-        Closure(Rc<Closure>),
+        List(KalRef<Vec<Value>>),
+        Object(KalRef<Object>),
+        Closure(KalRef<Closure>),
         Symbol(u64),
     }
 
@@ -48,11 +49,11 @@ pub mod types {
     #[derive(Debug, Clone)]
     pub struct Closure {
         pub code: &'static Function,
-        pub parent_ctx: Rc<Context>,
+        pub parent_ctx: KalRef<Context>,
     }
 
     impl Closure {
-        pub fn new(code: &'static Function, parent_ctx: Rc<Context>) -> Self {
+        pub fn new(code: &'static Function, parent_ctx: KalRef<Context>) -> Self {
             Closure {
                 code: code,
                 parent_ctx,
@@ -96,7 +97,7 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq)]
     pub struct Context {
-        parent: Option<Rc<Context>>,
+        parent: Option<KalRef<Context>>,
         scope: Object,
     }
 
@@ -108,7 +109,7 @@ pub mod types {
             }
         }
 
-        pub fn extend(ctx: Rc<Self>) -> Self {
+        pub fn extend(ctx: KalRef<Self>) -> Self {
             Context {
                 parent: Some(ctx),
                 scope: Object::new(),
@@ -147,16 +148,15 @@ pub mod types {
 }
 
 use self::types::*;
-use std::rc::Rc;
 
 pub fn eval(ast: &'static Block) -> Value {
-    let ctx = Rc::new(Context::new());
+    let ctx = KalRef::new(Context::new());
     let mut sym_gen = SymbolGenerator::new();
 
     eval_block(ctx, &mut sym_gen, ast)
 }
 
-fn eval_block(ctx: Rc<Context>, sym_gen: &mut SymbolGenerator, block: &'static Block) -> Value {
+fn eval_block(ctx: KalRef<Context>, sym_gen: &mut SymbolGenerator, block: &'static Block) -> Value {
     let mut ctx = Context::extend(ctx);
     for statement in block.statements.iter() {
         match statement {
@@ -166,7 +166,7 @@ fn eval_block(ctx: Rc<Context>, sym_gen: &mut SymbolGenerator, block: &'static B
                     expr,
                     mutable,
                 } = let_statement;
-                let ctx_before_let = Rc::new(ctx);
+                let ctx_before_let = KalRef::new(ctx);
                 let value = eval_expression(ctx_before_let.clone(), sym_gen, expr);
 
                 ctx = Context::extend(ctx_before_let);
@@ -176,12 +176,12 @@ fn eval_block(ctx: Rc<Context>, sym_gen: &mut SymbolGenerator, block: &'static B
     }
     match block.expression {
         None => Value::Null,
-        Some(ref expr) => eval_expression(Rc::new(ctx), sym_gen, expr),
+        Some(ref expr) => eval_expression(KalRef::new(ctx), sym_gen, expr),
     }
 }
 
 fn eval_expression(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     expr: &'static Expression,
 ) -> Value {
@@ -203,7 +203,7 @@ fn eval_expression(
 }
 
 fn eval_negative(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     neg: &'static NegativeExpression,
 ) -> Value {
@@ -223,7 +223,7 @@ fn eval_negative(
 }
 
 fn eval_not(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     not_expr: &'static NotExpression,
 ) -> Value {
@@ -242,7 +242,7 @@ fn eval_not(
 }
 
 fn eval_bool(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     bool_expr: &'static BooleanExpression,
 ) -> Value {
@@ -260,7 +260,7 @@ fn eval_bool(
                 _ => panic!("Cant compare, left side not a bool: {:?}.", bool_expr),
             };
 
-            // short-circuit
+            // short-ciKalRefuit
             if !left {
                 Value::Bool(false)
             } else {
@@ -280,7 +280,7 @@ fn eval_bool(
                 _ => panic!("Cant compare, left side not a bool: {:?}.", bool_expr),
             };
 
-            // short-circuit
+            // short-ciKalRefuit
             if left {
                 Value::Bool(true)
             } else {
@@ -311,7 +311,7 @@ fn eval_bool(
 }
 
 fn eval_dot(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     dot_expr: &'static DotExpression,
 ) -> Value {
@@ -329,7 +329,7 @@ fn eval_dot(
 }
 
 fn eval_index(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     index_expr: &'static IndexExpression,
 ) -> Value {
@@ -378,7 +378,7 @@ fn eval_index(
 }
 
 fn eval_comparison(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     comparison: &'static ComparisonExpression,
 ) -> Value {
@@ -429,7 +429,7 @@ fn compare<T: std::cmp::Eq + std::cmp::PartialOrd>(
 }
 
 fn eval_if(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     if_expr: &'static IfExpression,
 ) -> Value {
@@ -461,12 +461,12 @@ fn eval_if(
     Value::Null
 }
 
-fn eval_ident(ctx: Rc<Context>, ident: &Ident) -> Value {
+fn eval_ident(ctx: KalRef<Context>, ident: &Ident) -> Value {
     ctx.resolve_name(&ident.name)
 }
 
 fn eval_numeric(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     expr: &'static NumericExpression,
 ) -> Value {
@@ -495,7 +495,7 @@ fn eval_numeric(
 }
 
 fn eval_function_invocation(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     invocation: &'static FunctionInvocation,
 ) -> Value {
@@ -522,7 +522,7 @@ fn eval_function_invocation(
                 closure_ctx.add_binding(name.to_owned(), val);
             }
 
-            eval_block(Rc::new(closure_ctx), sym_gen, &closure.code.body)
+            eval_block(KalRef::new(closure_ctx), sym_gen, &closure.code.body)
         }
         _ => panic!(
             "could not call, the following expression is not a function {:?}",
@@ -532,7 +532,7 @@ fn eval_function_invocation(
 }
 
 fn eval_literal(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     literal: &'static Literal,
 ) -> Value {
@@ -540,7 +540,7 @@ fn eval_literal(
         Literal::Null => Value::Null,
         Literal::Bool(val) => Value::Bool(*val),
         Literal::Int(num) => Value::Int(*num),
-        Literal::Function(func) => Value::Closure(Rc::new(Closure::new(&func, ctx.clone()))),
+        Literal::Function(func) => Value::Closure(KalRef::new(Closure::new(&func, ctx.clone()))),
         Literal::Object(obj) => literal_object(ctx, sym_gen, obj),
         Literal::Symbol => sym_gen.next(),
         Literal::List(list) => literal_list(ctx, sym_gen, list),
@@ -549,7 +549,7 @@ fn eval_literal(
 }
 
 fn literal_list(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     list_literal: &'static ListLiteral,
 ) -> Value {
@@ -574,11 +574,11 @@ fn literal_list(
             }
         }
     }
-    Value::List(Rc::new(list))
+    Value::List(KalRef::new(list))
 }
 
 fn literal_object(
-    ctx: Rc<Context>,
+    ctx: KalRef<Context>,
     sym_gen: &mut SymbolGenerator,
     obj_literal: &'static ObjectLiteral,
 ) -> Value {
@@ -588,5 +588,5 @@ fn literal_object(
         let val = eval_expression(ctx.clone(), sym_gen, expr);
         obj.add_binding(name.to_owned(), val);
     }
-    Value::Object(Rc::new(obj))
+    Value::Object(KalRef::new(obj))
 }
