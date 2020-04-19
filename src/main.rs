@@ -1,15 +1,14 @@
 #[macro_use]
 extern crate lalrpop_util;
 
-mod ast;
-
-lalrpop_mod!(#[allow(clippy::all)] pub kal_grammar);
-mod interpreter;
-
 #[cfg(test)]
 mod tests;
 
+mod ast;
+mod interpreter;
 mod kal_ref;
+
+lalrpop_mod!(#[allow(clippy::all)] pub kal_grammar);
 
 fn main() {
     let ast = kal_grammar::BlockInnerParser::new()

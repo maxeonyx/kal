@@ -1,8 +1,7 @@
-use crate::interpreter::{
-    eval,
-    types::{Object, Value},
-};
+use crate::interpreter::{eval, types::Value};
 use crate::kal_ref::KalRef;
+
+use std::collections::HashMap;
 
 #[allow(dead_code)]
 fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
@@ -73,12 +72,12 @@ test! { release_mode_only, big_file, Value::Int(109621) }
 
 test! { release_mode_only, big_recursive, Value::Int(1133) }
 
-test! { object_empty, Value::Object(KalRef::new(Object::new())) }
+test! { object_empty, Value::Object(KalRef::new(HashMap::new())) }
 
 test! { object_simple,
     {
-        let mut obj = Object::new();
-        obj.add_binding("cat".to_owned(), Value::Int(1));
+        let mut obj = HashMap::new();
+        obj.insert("cat".to_owned(), Value::Int(1));
         Value::Object(KalRef::new(obj))
     }
 }
@@ -124,3 +123,5 @@ test! { num_multiplication, Value::Int(15) }
 test! { num_negative_subtraction, Value::Int(14) }
 
 test! { num_division, Value::Int(2) }
+
+test! { mut_num, Value::Int(2) }

@@ -1,10 +1,10 @@
 use crate::ast::BooleanExpression;
 use crate::ast::NotExpression;
 use crate::ast::{
-    Block, BooleanOperator, ComparisonExpression, ComparisonOperator, DotExpression, Expression,
-    FunctionInvocation, Ident, IfExpression, IfPart, IndexExpression, LetStatement, ListLiteral,
-    ListLiteralElem, Literal, NegativeExpression, NumericExpression, NumericOperator,
-    ObjectLiteral, Statement,
+    Assignment, Block, BooleanOperator, ComparisonExpression, ComparisonOperator, DotExpression,
+    Expression, FunctionInvocation, Ident, IfExpression, IfPart, IndexExpression, LetStatement,
+    ListLiteral, ListLiteralElem, Literal, Location, NegativeExpression, NumericExpression,
+    NumericOperator, ObjectLiteral, Statement,
 };
 
 use crate::kal_ref::KalRef;
@@ -19,7 +19,7 @@ pub mod types {
         Bool(bool),
         Int(i64),
         List(KalRef<Vec<Value>>),
-        Object(KalRef<Object>),
+        Object(KalRef<HashMap<String, Value>>),
         Closure(KalRef<Closure>),
         Symbol(u64),
     }
@@ -58,31 +58,7 @@ pub mod types {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct Object {
-        inner: HashMap<String, Value>,
-    }
-
-    impl Object {
-        pub fn new() -> Self {
-            Object {
-                inner: HashMap::new(),
-            }
-        }
-
-        pub fn add_binding(&mut self, k: String, v: Value) {
-            self.inner.insert(k, v);
-        }
-
-        pub fn get(&self, k: &str) -> Value {
-            self.inner
-                .get(k)
-                .unwrap_or_else(|| panic!("Failed to access {:?} on this object: {:#?}", k, self))
-                .clone()
-        }
-    }
-
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug)]
     pub struct Context {
         parent: Option<KalRef<Context>>,
         scope: HashMap<String, Value>,
@@ -107,6 +83,27 @@ pub mod types {
             self.scope.insert(k, v);
         }
 
+        pub fn get_location(&mut self, k: &str) -> &mut Value {
+            self.scope.get_mut(k).unwrap()
+        }
+
+        // pub fn resolve_location(&mut self, k: &str) -> &mut Value {
+        //     let mut ctx = self;
+        //     loop {
+        //         match ctx.scope.get_mut(k) {
+        //             Some(location) => return location,
+        //             None => {
+        //                 if let Some(parent) = ctx.parent {
+        //                     ctx
+        //                 }
+        //             }
+        //         }
+        //     }
+        //     self.scope
+        //         .get_mut(k)
+        //         .unwrap_or_else(|| panic!("{:?} is not a variable", k))
+        // }
+
         pub fn resolve_name(&self, name: &str) -> Value {
             let mut ctx = self;
             loop {
@@ -125,6 +122,7 @@ pub mod types {
 }
 
 use self::types::*;
+use std::collections::HashMap;
 
 pub fn eval(ast: &'static Block) -> Value {
     let ctx = KalRef::new(Context::new());
@@ -134,23 +132,56 @@ pub fn eval(ast: &'static Block) -> Value {
 }
 
 fn eval_block(ctx: KalRef<Context>, sym_gen: &mut SymbolGenerator, block: &'static Block) -> Value {
-    let mut ctx = Context::extend(ctx);
+    let mut ctx = KalRef::new(Context::extend(ctx));
     for statement in block.statements.iter() {
         match statement {
             Statement::Let(let_statement) => {
                 let LetStatement { variable, expr, .. } = let_statement;
-                let ctx_before_let = KalRef::new(ctx);
-                let value = eval_expression(ctx_before_let.clone(), sym_gen, expr);
+                let value = eval_expression(ctx.clone(), sym_gen, expr);
 
-                ctx = Context::extend(ctx_before_let);
-                ctx.add_binding(variable.name.clone(), value.clone());
+                // new binding gets added into a new scope if there are multiple references to the current context.
+                let ctx_ref = match ctx.borrow_mut() {
+                    Some(ctx_ref) => ctx_ref,
+                    None => {
+                        ctx = KalRef::new(Context::extend(ctx));
+                        // unwrap OK because we just created a new context
+                        ctx.borrow_mut().unwrap()
+                    }
+                };
+                ctx_ref.add_binding(variable.name.clone(), value);
+            }
+            Statement::Assignment(assignment) => {
+                let Assignment { location, expr } = assignment;
+
+                let value = eval_expression(ctx.clone(), sym_gen, expr);
+                let location = match ctx.borrow_mut() {
+                    Some(ctx_ref) => eval_location(ctx_ref, location),
+                    None => panic!("Can't mutate the following location: {:?}", expr),
+                };
+                *location = value;
             }
         }
     }
     match block.expression {
         None => Value::Null,
-        Some(ref expr) => eval_expression(KalRef::new(ctx), sym_gen, expr),
+        Some(ref expr) => eval_expression(ctx, sym_gen, expr),
     }
+}
+
+fn eval_location<'location>(
+    ctx: &'location mut Context,
+    location: &'static Location,
+) -> &'location mut Value {
+    match location {
+        Location::Ident(ident) => eval_location_ident(ctx, ident),
+    }
+}
+
+fn eval_location_ident<'location>(
+    ctx: &'location mut Context,
+    ident: &'static Ident,
+) -> &'location mut Value {
+    ctx.get_location(&ident.name)
 }
 
 fn eval_expression(
@@ -293,7 +324,10 @@ fn eval_dot(
     let base = eval_expression(ctx, sym_gen, base);
 
     match base {
-        Value::Object(ref obj) => obj.get(&prop.name),
+        Value::Object(ref obj) => obj
+            .get(&prop.name)
+            .unwrap_or_else(|| panic!("could not acces property {:?}", &prop.name))
+            .clone(),
         _ => panic!(
             "Tried to use dot expression on {:?} from {:?}",
             base, dot_expr
@@ -554,11 +588,11 @@ fn literal_object(
     sym_gen: &mut SymbolGenerator,
     obj_literal: &'static ObjectLiteral,
 ) -> Value {
-    let mut obj = Object::new();
+    let mut obj = HashMap::new();
     for (ident, expr) in obj_literal.map.iter() {
         let name = &ident.name;
         let val = eval_expression(ctx.clone(), sym_gen, expr);
-        obj.add_binding(name.to_owned(), val);
+        obj.insert(name.to_owned(), val);
     }
     Value::Object(KalRef::new(obj))
 }
