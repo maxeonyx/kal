@@ -1,6 +1,7 @@
 use crate::ast::*;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::rc::Rc;
 
 grammar;
 
@@ -32,12 +33,12 @@ pub BlockInner: Block = {
     <e:Expression> =>
         Block {
             statements: Vec::new(),
-            expression: Some(Box::new(e)),
+            expression: Some(Rc::new(e)),
         },
     <v:(<Statement> ";")+> <e:Expression?> =>
         Block {
             statements: v,
-            expression: e.map(|expr| Box::new(expr)),
+            expression: e.map(|expr| Rc::new(expr)),
         },
 }
 
@@ -46,19 +47,19 @@ pub BlockInnerNotEmpty: Block = {
     <e:Expression> =>
         Block {
             statements: Vec::new(),
-            expression: Some(Box::new(e)),
+            expression: Some(Rc::new(e)),
         },
     <v:(<Statement> ";")+> <e:Expression?> => {
         Block {
             statements: v,
-            expression: e.map(|expr| Box::new(expr)),
+            expression: e.map(|expr| Rc::new(expr)),
         }
     }
 }
 
-Statement: Statement = {
-    <le:LetStatement> => Statement::Let(le),
-    <a:Assignment> => Statement::Assignment(a),
+Statement: Rc<Statement> = {
+    <le:LetStatement> => Rc::new(Statement::Let(le)),
+    <a:Assignment> => Rc::new(Statement::Assignment(a)),
 }
 
 // Function literal is highest operator precedence.
@@ -70,8 +71,8 @@ Expression: Expression = {
 BooleanExpression: Expression = {
     <l:BooleanExpression> <o:BooleanOperator> <r:ComparisonExpression> =>
         Expression::Boolean(BooleanExpression {
-            left: Box::new(l),
-            right: Box::new(r),
+            left: Rc::new(l),
+            right: Rc::new(r),
             operator: o,
         }),
     NotExpression,
@@ -86,7 +87,7 @@ BooleanOperator: BooleanOperator = {
 NotExpression: Expression = {
     "not" <e:NotExpression> =>
         Expression::Not(NotExpression {
-            expr: Box::new(e),
+            expr: Rc::new(e),
         }),
     ComparisonExpression,
 }
@@ -94,8 +95,8 @@ NotExpression: Expression = {
 ComparisonExpression: Expression = {
     <l:ComparisonExpression> <o:ComparisonOperator> <r:AddExpression> =>
     Expression::Comparison(ComparisonExpression {
-        left: Box::new(l),
-        right: Box::new(r),
+        left: Rc::new(l),
+        right: Rc::new(r),
         operator: o,
     }),
     AddExpression,
@@ -113,14 +114,14 @@ ComparisonOperator: ComparisonOperator = {
 AddExpression: Expression = {
     <l:AddExpression> "+" <r:MultiplyExpression> =>
         Expression::Numeric(NumericExpression {
-            left: Box::new(l),
-            right: Box::new(r),
+            left: Rc::new(l),
+            right: Rc::new(r),
             operator: NumericOperator::Add,
         }),
     <l:AddExpression> "-" <r:MultiplyExpression> =>
         Expression::Numeric(NumericExpression {
-            left: Box::new(l),
-            right: Box::new(r),
+            left: Rc::new(l),
+            right: Rc::new(r),
             operator: NumericOperator::Subtract,
         }),
     MultiplyExpression,
@@ -129,14 +130,14 @@ AddExpression: Expression = {
 MultiplyExpression: Expression = {
     <l:MultiplyExpression> "*" <r:NormalExpression> =>
         Expression::Numeric(NumericExpression {
-            left: Box::new(l),
-            right: Box::new(r),
+            left: Rc::new(l),
+            right: Rc::new(r),
             operator: NumericOperator::Multiply,
         }),
     <l:MultiplyExpression> "/" <r:NormalExpression> =>
         Expression::Numeric(NumericExpression {
-            left: Box::new(l),
-            right: Box::new(r),
+            left: Rc::new(l),
+            right: Rc::new(r),
             operator: NumericOperator::Divide,
         }),
     NegativeExpression,
@@ -145,7 +146,7 @@ MultiplyExpression: Expression = {
 NegativeExpression: Expression = {
     "-" <e:NormalExpression> =>
         Expression::Negative(NegativeExpression {
-            expr: Box::new(e),
+            expr: Rc::new(e),
         }),
     NormalExpression,
 }
@@ -167,7 +168,7 @@ SimpleExpression: Expression = {
 DotExpression: DotExpression = {
     <se:SimpleExpression> "." <i:Ident> =>
         DotExpression {
-            base: Box::new(se),
+            base: Rc::new(se),
             prop: i,
         },
 }
@@ -175,8 +176,8 @@ DotExpression: DotExpression = {
 IndexExpression: IndexExpression = {
     <base:SimpleExpression> "[" <index:Expression> "]" =>
         IndexExpression {
-            base: Box::new(base),
-            index: Box::new(index),
+            base: Rc::new(base),
+            index: Rc::new(index),
         },
 }
 
@@ -195,7 +196,7 @@ FunctionLiteral: Function = {
 FunctionBody: Block = {
     <e: Expression> => Block {
         statements: Vec::new(),
-        expression: Some(Box::new(e)),
+        expression: Some(Rc::new(e)),
     },
     <b: Block> => b,
 }
@@ -205,7 +206,7 @@ LetStatement: LetStatement = {
     LetStatement {
         mutable: m,
         variable: i,
-        expr: Box::new(e),
+        expr: Rc::new(e),
     },
 }
 
@@ -217,8 +218,8 @@ Mut: bool = {
 Assignment: Assignment = {
     <l:Location> "=" <e:Expression> =>
         Assignment {
-            location: Box::new(l),
-            expr: Box::new(e),
+            location: Rc::new(l),
+            expr: Rc::new(e),
         }
 }
 
@@ -257,7 +258,7 @@ FunctionInvocation: FunctionInvocation = {
     <se:SimpleExpression> "(" <v:Comma<Expression>> ")" =>
 
     FunctionInvocation {
-        closure_expression: Box::new(se),
+        closure_expression: Rc::new(se),
         parameters: v,
     },
 }

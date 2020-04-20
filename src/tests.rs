@@ -1,7 +1,7 @@
-use crate::interpreter::{eval, types::Value};
 use crate::kal_ref::KalRef;
+use crate::new_interpreter::{Interpreter, Value};
 
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 #[allow(dead_code)]
 fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
@@ -12,10 +12,8 @@ fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
             .parse(&text)
             .unwrap_or_else(|_| panic!("Failed to parse file {:?}.", path)),
     );
-    // We ensure that the AST lives longer than any garbage collected objects by giving it a 'static
-    // lifetime by leaking it.
-    let ast = Box::leak(ast);
-    let got = eval(ast);
+    let mut runtime = Interpreter::new();
+    let got = runtime.eval(Rc::new(*ast));
     assert!(
         closure(got),
         "Value returned from example did not match the expected value."

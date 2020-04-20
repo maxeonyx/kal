@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum Statement {
@@ -10,13 +11,13 @@ pub enum Statement {
 pub struct LetStatement {
     pub mutable: bool,
     pub variable: Ident,
-    pub expr: Box<Expression>,
+    pub expr: Rc<Expression>,
 }
 
 #[derive(Debug)]
 pub struct Assignment {
-    pub location: Box<Location>,
-    pub expr: Box<Expression>,
+    pub location: Rc<Location>,
+    pub expr: Rc<Expression>,
 }
 
 #[derive(Debug)]
@@ -41,18 +42,18 @@ pub enum Expression {
 
 #[derive(Debug)]
 pub struct NegativeExpression {
-    pub expr: Box<Expression>,
+    pub expr: Rc<Expression>,
 }
 
 #[derive(Debug)]
 pub struct NotExpression {
-    pub expr: Box<Expression>,
+    pub expr: Rc<Expression>,
 }
 
 #[derive(Debug)]
 pub struct BooleanExpression {
-    pub left: Box<Expression>,
-    pub right: Box<Expression>,
+    pub left: Rc<Expression>,
+    pub right: Rc<Expression>,
     pub operator: BooleanOperator,
 }
 
@@ -65,14 +66,14 @@ pub enum BooleanOperator {
 
 #[derive(Debug)]
 pub struct DotExpression {
-    pub base: Box<Expression>,
+    pub base: Rc<Expression>,
     pub prop: Ident,
 }
 
 #[derive(Debug)]
 pub struct IndexExpression {
-    pub base: Box<Expression>,
-    pub index: Box<Expression>,
+    pub base: Rc<Expression>,
+    pub index: Rc<Expression>,
 }
 
 #[derive(Debug)]
@@ -87,12 +88,12 @@ pub enum ComparisonOperator {
 
 #[derive(Debug)]
 pub struct ComparisonExpression {
-    pub left: Box<Expression>,
-    pub right: Box<Expression>,
+    pub left: Rc<Expression>,
+    pub right: Rc<Expression>,
     pub operator: ComparisonOperator,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum NumericOperator {
     Add,
     Multiply,
@@ -102,8 +103,8 @@ pub enum NumericOperator {
 
 #[derive(Debug)]
 pub struct NumericExpression {
-    pub left: Box<Expression>,
-    pub right: Box<Expression>,
+    pub left: Rc<Expression>,
+    pub right: Rc<Expression>,
     pub operator: NumericOperator,
 }
 
@@ -125,7 +126,6 @@ pub enum Literal {
     Bool(bool),
     Symbol,
     Int(i64),
-    String(String),
     Object(ObjectLiteral),
     List(ListLiteral),
     Function(Function),
@@ -139,13 +139,13 @@ pub struct Function {
 
 #[derive(Debug)]
 pub struct Block {
-    pub statements: Vec<Statement>,
-    pub expression: Option<Box<Expression>>,
+    pub statements: Vec<Rc<Statement>>,
+    pub expression: Option<Rc<Expression>>,
 }
 
 #[derive(Debug)]
 pub struct FunctionInvocation {
-    pub closure_expression: Box<Expression>,
+    pub closure_expression: Rc<Expression>,
     pub parameters: Vec<Expression>,
 }
 
