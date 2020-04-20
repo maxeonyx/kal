@@ -3,6 +3,25 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub enum Statement {
     Let(LetStatement),
+    Assignment(Assignment),
+}
+
+#[derive(Debug)]
+pub struct LetStatement {
+    pub mutable: bool,
+    pub variable: Ident,
+    pub expr: Box<Expression>,
+}
+
+#[derive(Debug)]
+pub struct Assignment {
+    pub location: Box<Location>,
+    pub expr: Box<Expression>,
+}
+
+#[derive(Debug)]
+pub enum Location {
+    Ident(Ident),
 }
 
 #[derive(Debug)]
@@ -86,12 +105,6 @@ pub struct NumericExpression {
     pub left: Box<Expression>,
     pub right: Box<Expression>,
     pub operator: NumericOperator,
-}
-
-#[derive(Debug)]
-pub struct LetStatement {
-    pub variable: Ident,
-    pub expr: Box<Expression>,
 }
 
 #[derive(Debug)]

@@ -1,0 +1,34 @@
+
+// No 1 Most Important
+// collecting from iterator
+let k = 7;
+let primes = fn () { // holds reference to outside context
+    yield 2;
+    yield k;
+};
+let mut vals = []; // new context
+for n in primes() {
+    vals.push(n); // totally fine
+}
+
+// GOOD
+// mutating list
+// doesn't require multiple references to context
+let mut list = [0,0,0,0,0,0,0,0,0,0];
+for i in 1:10 {
+    list[i] = i * i;
+}
+
+// OK
+// mutating the environment outside if statement
+let mut a = 5;
+if cond() {
+    a = 3;
+}
+
+// BAD
+// creating a reference cycle with mutable context
+let mut var = 5;
+let f = fn(x) var = x;
+f(f) // f holds a reference to the context containing var, which now holds a reference to f
+// its contrived but i think it will happen in practice

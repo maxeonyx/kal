@@ -58,6 +58,7 @@ pub BlockInnerNotEmpty: Block = {
 
 Statement: Statement = {
     <le:LetStatement> => Statement::Let(le),
+    <a:Assignment> => Statement::Assignment(a),
 }
 
 // Function literal is highest operator precedence.
@@ -200,23 +201,41 @@ FunctionBody: Block = {
 }
 
 LetStatement: LetStatement = {
-    "let" <i:Ident> "=" <e:Expression> =>
+    "let" <m:Mut> <i:Ident> "=" <e:Expression> =>
     LetStatement {
+        mutable: m,
         variable: i,
         expr: Box::new(e),
     },
+}
+
+Mut: bool = {
+    => false,
+    "mut" => true,
+}
+
+Assignment: Assignment = {
+    <l:Location> "=" <e:Expression> =>
+        Assignment {
+            location: Box::new(l),
+            expr: Box::new(e),
+        }
+}
+
+Location: Location = {
+    <i:Ident> => Location::Ident(i),
 }
 
 IfExpression: IfExpression = {
     "if" <c:Expression> <b:Block> <else_ifs:ElseIf*> <eb:ElseBody?> =>
     {
         let mut if_parts = else_ifs;
-        if_parts.insert(0, IfPart { 
+        if_parts.insert(0, IfPart {
             cond: c,
             body: b,
         });
         IfExpression {
-            ifs: if_parts, 
+            ifs: if_parts,
             else_body: eb
         }
     }
