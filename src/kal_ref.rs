@@ -47,7 +47,6 @@ impl<T> KalRef<T> {
         }
     }
 
-    #[allow(unused)]
     pub fn borrow_mut(&mut self) -> Option<&mut T> {
         if self.ref_count() > 1 {
             None
