@@ -1,10 +1,10 @@
 use crate::kal_ref::KalRef;
-use crate::new_interpreter::{Interpreter, Value};
+use crate::new_interpreter::{Interpreter, Key, Value};
 
 use std::{collections::HashMap, rc::Rc};
 
 #[allow(dead_code)]
-fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
+fn eval_file(path: &str) -> Value {
     let text =
         std::fs::read_to_string(path).unwrap_or_else(|_| panic!("Could not read file {:?}", path));
     let ast = Box::new(
@@ -13,11 +13,8 @@ fn test_file(path: &str, closure: impl Fn(Value) -> bool) {
             .unwrap_or_else(|_| panic!("Failed to parse file {:?}.", path)),
     );
     let mut runtime = Interpreter::new();
-    let got = runtime.eval(Rc::new(*ast));
-    assert!(
-        closure(got),
-        "Value returned from example did not match the expected value."
-    );
+
+    runtime.eval(Rc::new(*ast))
 }
 
 macro_rules! test {
@@ -25,15 +22,33 @@ macro_rules! test {
         #[cfg(not(debug_assertions))]
         #[test]
         pub fn $test_name() {
-            test_file(&format!("examples/{}.kal", stringify!($test_name)), |val| val == $expected_val);
+            let val = eval_file(&format!("examples/{}.kal", stringify!($test_name)));
+            assert!(val == $expected_val);
         }
     };
     {$test_name:ident, $expected_val:expr} => {
         #[test]
         pub fn $test_name() {
-            test_file(&format!("examples/{}.kal", stringify!($test_name)), |val| val == $expected_val);
+            let val = eval_file(&format!("examples/{}.kal", stringify!($test_name)));
+            assert!(val == $expected_val);
         }
     };
+}
+
+#[cfg(not(debug_assertions))]
+#[test]
+fn big_file() {
+    let size = 4_000_000_i64;
+    let let_statements = "let num=num+1;".repeat(size as usize);
+    let text = format!("let num = 0; {} num", let_statements);
+    let ast = Box::new(
+        crate::kal_grammar::BlockInnerParser::new()
+            .parse(&text)
+            .expect("Wasn't a valid program."),
+    );
+    let mut runtime = Interpreter::new();
+    let val = runtime.eval(Rc::new(*ast));
+    assert!(val == Value::Int(size));
 }
 
 test! { empty_file, Value::Null }
@@ -66,8 +81,6 @@ test! { comparison_true, Value::Bool(true) }
 
 test! { comparison_false, Value::Bool(false) }
 
-test! { release_mode_only, big_file, Value::Int(109621) }
-
 test! { release_mode_only, big_recursive, Value::Int(1133) }
 
 test! { object_empty, Value::Object(KalRef::new(HashMap::new())) }
@@ -75,7 +88,7 @@ test! { object_empty, Value::Object(KalRef::new(HashMap::new())) }
 test! { object_simple,
     {
         let mut obj = HashMap::new();
-        obj.insert("cat".to_owned(), Value::Int(1));
+        obj.insert(Key::Str("cat".to_owned()), Value::Int(1));
         Value::Object(KalRef::new(obj))
     }
 }
