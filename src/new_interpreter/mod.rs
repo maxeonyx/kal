@@ -8,6 +8,7 @@ mod eval_impls;
 use ast::Function;
 use eval::Eval;
 
+#[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Key {
     Null,
@@ -17,13 +18,14 @@ pub enum Key {
     Str(String),
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Null,
     Bool(bool),
     Int(i64),
     List(KalRef<Vec<Value>>),
-    Object(KalRef<HashMap<String, Value>>),
+    Object(KalRef<HashMap<Key, Value>>),
     Closure(KalRef<Closure>),
     Symbol(u64),
 }
@@ -118,6 +120,7 @@ impl Interpreter {
         }
     }
 
+    #[allow(unused)]
     fn print_eval_stack(&self) {
         println!("===== eval stack =====");
         print!("[ ");
@@ -127,16 +130,19 @@ impl Interpreter {
         println!("]");
     }
 
+    #[allow(unused)]
     fn print_value_stack(&self) {
         println!("===== value stack =====");
         println!("{:#?}", self.ctx().value_stack);
     }
 
+    #[allow(unused)]
     fn print_ctx_stack(&self) {
         println!("===== ctx stack =====");
         println!("{:#?}", self.ctx_stack);
     }
 
+    #[allow(unused)]
     fn print_scope_chain(&self) {
         println!("===== scope chain =====");
         print!("[ ");
@@ -160,18 +166,20 @@ impl Interpreter {
     pub fn eval(&mut self, statement: Rc<dyn Eval>) -> Value {
         self.ctx_mut().eval_stack.push(statement);
         loop {
-            while self.ctx().eval_stack.len() > 0 {
+            while !self.ctx().eval_stack.is_empty() {
                 let statement = self.ctx_mut().eval_stack.pop().unwrap();
 
                 let result = statement.eval(self);
 
-                result.map(|val| self.ctx_mut().value_stack.push(val));
+                if let Some(val) = result {
+                    self.ctx_mut().value_stack.push(val);
+                }
             }
 
             self.print_value_stack();
             let value_left_over = self.pop_value();
             self.pop_context();
-            if self.ctx_stack.len() > 0 {
+            if !self.ctx_stack.is_empty() {
                 self.ctx_mut().value_stack.push(value_left_over);
             } else {
                 return value_left_over;

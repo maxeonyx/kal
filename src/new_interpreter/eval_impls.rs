@@ -1,7 +1,7 @@
-use super::{eval::Eval, Closure, Context, Interpreter, Key, Scope, Value};
+use super::{eval::Eval, Closure, Context, Interpreter, Scope, Value};
 use crate::{ast, kal_ref::KalRef};
 use ast::Literal;
-use std::{collections::HashMap, fmt, rc::Rc};
+use std::{fmt, rc::Rc};
 
 struct Custom<T: Fn(&mut Interpreter) -> Option<Value>> {
     name: &'static str,
@@ -67,7 +67,7 @@ impl Eval for ast::Literal {
             Null => Some(Value::Null),
             //Bool(val) => Some(Value::Bool(*val)),
             Int(num) => Some(Value::Int(*num)),
-            //Symbol => Some(int.sym_gen.gen()),
+            Symbol => Some(int.ctx().sym_gen.gen()),
             Function(func) => Some(Value::Closure(KalRef::new(Closure::new(
                 func.clone(),
                 int.branch_scope(),
