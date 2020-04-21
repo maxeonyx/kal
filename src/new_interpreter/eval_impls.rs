@@ -38,14 +38,14 @@ impl Eval for ast::Expression {
             Literal(literal) => literal.eval(ctx),
             //FunctionInvocation(func_invo) => func_invo.eval(ctx),
             Numeric(numeric) => numeric.eval(ctx),
-            //Ident(ident) => ident.eval(ctx),
+            Ident(ident) => ident.eval(ctx),
             //If(if_expr) => if_expr.eval(ctx),
             //Comparison(comparison) => comparison.eval(ctx),
             //Dot(dot_expr) => dot_expr.eval(ctx),
             //Index(index_expr) => index_expr.eval(ctx),
             //Boolean(bool_expr) => bool_expr.eval(ctx),
             //Not(not_expr) => not_expr.eval(ctx),
-            //Negative(neg) => neg.eval(ctx),
+            Negative(neg) => neg.eval(ctx),
             _ => unimplemented!(),
         }
     }
@@ -58,9 +58,9 @@ impl Eval for ast::Literal {
             Null => Some(Value::Null),
             //Bool(val) => Some(Value::Bool(*val)),
             Int(num) => Some(Value::Int(*num)),
+            //Symbol => Some(ctx.sym_gen.gen()),
             //Function(func) => func.eval(ctx),
             //Object(obj) => obj.eval(ctx),
-            //Symbol => Some(ctx.sym_gen.gen()),
             //List(list) => list.eval(ctx),
             _ => unimplemented!(),
         }
@@ -155,5 +155,42 @@ impl Eval for ast::NumericExpression {
         ctx.eval_stack.push(self.left.clone());
         ctx.eval_stack.push(self.right.clone());
         None
+    }
+}
+
+impl Eval for ast::NegativeExpression {
+    fn eval(&self, ctx: &mut Context) -> Option<Value> {
+        ctx.eval_stack.push(Rc::new(Custom {
+            name: "Negative",
+            function: move |ctx| {
+                let val = ctx
+                    .value_stack
+                    .pop()
+                    .expect("Implementation error - Not enough values for Negative");
+                let val = match val {
+                    Value::Int(i) => i,
+                    _ => panic!("Cant negate, val not an Int."),
+                };
+                if val == std::i64::MIN {
+                    // TODO: BigInteger wrapping
+                    panic!("Can't negate i64::min.");
+                }
+                let val = -val;
+                Some(Value::Int(val))
+            },
+        }));
+        ctx.eval_stack.push(self.expr.clone());
+        None
+    }
+}
+
+impl Eval for ast::Ident {
+    fn eval(&self, ctx: &mut Context) -> Option<Value> {
+        for scope in ctx.scopes.iter().rev() {
+            if let Some(value) = scope.get(&Key::Str(self.name.clone())) {
+                return Some(value.clone());
+            }
+        }
+        panic!("Could not resolve name {:?}", self.name)
     }
 }
