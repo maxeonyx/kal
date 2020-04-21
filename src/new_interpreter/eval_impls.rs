@@ -1,138 +1,147 @@
-use super::{eval::Eval, Context, Key, Value};
-use crate::ast;
+use super::{eval::Eval, Closure, Context, Interpreter, Key, Scope, Value};
+use crate::{ast, kal_ref::KalRef};
 use ast::Literal;
 use std::{collections::HashMap, fmt, rc::Rc};
 
-struct Custom<T: Fn(&mut Context) -> Option<Value>> {
+struct Custom<T: Fn(&mut Interpreter) -> Option<Value>> {
     name: &'static str,
     function: T,
 }
-impl<T: Fn(&mut Context) -> Option<Value>> fmt::Debug for Custom<T> {
+impl<T: Fn(&mut Interpreter) -> Option<Value>> fmt::Debug for Custom<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Custom")
             .field("name", &self.name)
             .finish()
     }
 }
-impl<T: Fn(&mut Context) -> Option<Value>> Eval for Custom<T> {
-    fn eval(&self, ctx: &mut Context) -> Option<Value> {
-        (self.function)(ctx)
+impl<T: Fn(&mut Interpreter) -> Option<Value>> Eval for Custom<T> {
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
+        (self.function)(int)
+    }
+    fn short_name(&self) -> &str {
+        self.name
     }
 }
 
 impl Eval for ast::Statement {
-    fn eval(&self, ctx: &mut Context) -> Option<Value> {
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
         use ast::Statement::*;
         match self {
-            Let(let_statement) => let_statement.eval(ctx),
+            Let(let_statement) => let_statement.eval(int),
             _ => unimplemented!(),
-            //Assignment(assignment) => assignment.eval(ctx),
+            //Assignment(assignment) => assignment.eval(int),
         }
+    }
+    fn short_name(&self) -> &str {
+        "Statement"
     }
 }
 
 impl Eval for ast::Expression {
-    fn eval(&self, ctx: &mut Context) -> Option<Value> {
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
         use ast::Expression::*;
         match self {
-            Literal(literal) => literal.eval(ctx),
-            //FunctionInvocation(func_invo) => func_invo.eval(ctx),
-            Numeric(numeric) => numeric.eval(ctx),
-            Ident(ident) => ident.eval(ctx),
-            //If(if_expr) => if_expr.eval(ctx),
-            //Comparison(comparison) => comparison.eval(ctx),
-            //Dot(dot_expr) => dot_expr.eval(ctx),
-            //Index(index_expr) => index_expr.eval(ctx),
-            //Boolean(bool_expr) => bool_expr.eval(ctx),
-            //Not(not_expr) => not_expr.eval(ctx),
-            Negative(neg) => neg.eval(ctx),
+            Literal(literal) => literal.eval(int),
+            FunctionInvocation(func_invo) => func_invo.eval(int),
+            Numeric(numeric) => numeric.eval(int),
+            Ident(ident) => ident.eval(int),
+            //If(if_expr) => if_expr.eval(int),
+            //Comparison(comparison) => comparison.eval(int),
+            //Dot(dot_expr) => dot_expr.eval(int),
+            //Index(index_expr) => index_expr.eval(int),
+            //Boolean(bool_expr) => bool_expr.eval(int),
+            //Not(not_expr) => not_expr.eval(int),
+            Negative(neg) => neg.eval(int),
             _ => unimplemented!(),
         }
+    }
+    fn short_name(&self) -> &str {
+        "Expression"
     }
 }
 
 impl Eval for ast::Literal {
-    fn eval(&self, ctx: &mut Context) -> Option<Value> {
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
         use ast::Literal::*;
         match self {
             Null => Some(Value::Null),
             //Bool(val) => Some(Value::Bool(*val)),
             Int(num) => Some(Value::Int(*num)),
-            //Symbol => Some(ctx.sym_gen.gen()),
-            //Function(func) => func.eval(ctx),
-            //Object(obj) => obj.eval(ctx),
-            //List(list) => list.eval(ctx),
+            //Symbol => Some(int.sym_gen.gen()),
+            Function(func) => Some(Value::Closure(KalRef::new(Closure::new(
+                func.clone(),
+                int.branch_scope(),
+            )))),
+            //Object(obj) => obj.eval(int),
+            //List(list) => list.eval(int),
             _ => unimplemented!(),
         }
+    }
+    fn short_name(&self) -> &str {
+        "Literal"
     }
 }
 
 impl Eval for ast::Block {
-    fn eval(&self, ctx: &mut Context) -> Option<Value> {
-        ctx.eval_stack.push(Rc::new(Custom {
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
+        int.push_eval(Rc::new(Custom {
             name: "PopScope",
-            function: |ctx| {
-                ctx.scopes.pop();
+            function: |int| {
+                int.pop_scope();
                 None
             },
         }));
 
         if let Some(expr) = &self.expression {
-            ctx.eval_stack.push(expr.clone());
+            int.push_eval(expr.clone());
         } else {
-            ctx.eval_stack.push(Rc::new(Literal::Null));
+            int.push_eval(Rc::new(Literal::Null));
         }
 
         for statement in self.statements.iter().rev() {
-            ctx.eval_stack.push(statement.clone());
+            int.push_eval(statement.clone());
         }
-        ctx.eval_stack.push(Rc::new(Custom {
+        int.push_eval(Rc::new(Custom {
             name: "PushScope",
-            function: |ctx| {
-                ctx.scopes.push(HashMap::new());
+            function: |int| {
+                int.push_scope();
                 None
             },
         }));
         None
+    }
+    fn short_name(&self) -> &str {
+        "Block"
     }
 }
 
 impl Eval for ast::LetStatement {
-    fn eval(&self, ctx: &mut Context) -> Option<Value> {
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
         let name = self.variable.name.clone();
-        ctx.eval_stack.push(Rc::new(Custom {
-            name: "Let",
-            function: move |ctx| {
-                let val = ctx
-                    .value_stack
-                    .pop()
-                    .expect("Implementation error - Not enough values for Let");
-                ctx.scopes
-                    .last_mut()
-                    .unwrap()
-                    .insert(Key::Str(name.clone()), val);
+        int.push_eval(Rc::new(Custom {
+            name: "LetInner",
+            function: move |int| {
+                let val = int.pop_value();
+                int.create_binding(name.clone(), val);
                 None
             },
         }));
-        ctx.eval_stack.push(self.expr.clone());
+        int.push_eval(self.expr.clone());
         None
+    }
+    fn short_name(&self) -> &str {
+        "Let"
     }
 }
 
 impl Eval for ast::NumericExpression {
-    fn eval(&self, ctx: &mut Context) -> Option<Value> {
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
         let operator = self.operator;
-        ctx.eval_stack.push(Rc::new(Custom {
-            name: "Numeric",
-            function: move |ctx| {
-                let left = ctx
-                    .value_stack
-                    .pop()
-                    .expect("Implementation error - Not enough values for Numeric");
-                let right = ctx
-                    .value_stack
-                    .pop()
-                    .expect("Implementation error - Not enough values for Numeric");
+        int.push_eval(Rc::new(Custom {
+            name: "NumericInner",
+            function: move |int| {
+                let left = int.pop_value();
+                let right = int.pop_value();
 
                 let left = match left {
                     Value::Int(i) => i,
@@ -152,21 +161,21 @@ impl Eval for ast::NumericExpression {
                 Some(val)
             },
         }));
-        ctx.eval_stack.push(self.left.clone());
-        ctx.eval_stack.push(self.right.clone());
+        int.push_eval(self.left.clone());
+        int.push_eval(self.right.clone());
         None
+    }
+    fn short_name(&self) -> &str {
+        "Numeric"
     }
 }
 
 impl Eval for ast::NegativeExpression {
-    fn eval(&self, ctx: &mut Context) -> Option<Value> {
-        ctx.eval_stack.push(Rc::new(Custom {
-            name: "Negative",
-            function: move |ctx| {
-                let val = ctx
-                    .value_stack
-                    .pop()
-                    .expect("Implementation error - Not enough values for Negative");
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
+        int.push_eval(Rc::new(Custom {
+            name: "NegativeInner",
+            function: move |int| {
+                let val = int.pop_value();
                 let val = match val {
                     Value::Int(i) => i,
                     _ => panic!("Cant negate, val not an Int."),
@@ -179,18 +188,88 @@ impl Eval for ast::NegativeExpression {
                 Some(Value::Int(val))
             },
         }));
-        ctx.eval_stack.push(self.expr.clone());
+        int.push_eval(self.expr.clone());
         None
+    }
+    fn short_name(&self) -> &str {
+        "Negative"
     }
 }
 
 impl Eval for ast::Ident {
-    fn eval(&self, ctx: &mut Context) -> Option<Value> {
-        for scope in ctx.scopes.iter().rev() {
-            if let Some(value) = scope.get(&Key::Str(self.name.clone())) {
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
+        let mut scope = &int.ctx().scope_chain;
+        loop {
+            if let Some(value) = scope.bindings.get(&self.name) {
                 return Some(value.clone());
             }
+
+            if let Some(parent) = &scope.parent {
+                scope = parent;
+                continue;
+            }
+
+            panic!("Could not resolve name {:?}", self.name);
         }
-        panic!("Could not resolve name {:?}", self.name)
+    }
+    fn short_name(&self) -> &str {
+        "Ident"
+    }
+}
+
+impl Eval for ast::FunctionInvocation {
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
+        let num_params_provided = self.parameters.len();
+        int.push_eval(Rc::new(Custom {
+            name: "FunctionInvocationInner",
+            function: move |int| {
+                let closure = int.pop_value();
+                let closure = match closure {
+                    Value::Closure(closure) => closure,
+                    _ => panic!("Cannot call value other than closure."),
+                };
+                let param_names = closure
+                    .code
+                    .parameters
+                    .iter()
+                    .map(|ident| ident.name.clone())
+                    .collect::<Vec<_>>();
+
+                let body = closure.code.body.clone();
+                let scope = Scope::extend(closure.scope.clone());
+
+                // param lists of different length
+                assert!(
+                    num_params_provided == param_names.len(),
+                    "Must call function with the exact number of params."
+                );
+
+                let mut values = Vec::with_capacity(num_params_provided);
+                for _ in 0..num_params_provided {
+                    values.push(int.pop_value());
+                }
+
+                int.push_context(Context::new(int.ctx().sym_gen.clone(), scope));
+
+                for (name, value) in param_names.into_iter().zip(values) {
+                    int.create_binding(name, value);
+                }
+
+                int.push_eval(body);
+
+                None
+            },
+        }));
+
+        int.push_eval(self.closure_expression.clone());
+
+        for expr in self.parameters.iter() {
+            int.push_eval(expr.clone());
+        }
+
+        None
+    }
+    fn short_name(&self) -> &str {
+        "FunctionInvocation"
     }
 }

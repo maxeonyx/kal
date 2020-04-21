@@ -64,7 +64,7 @@ Statement: Rc<Statement> = {
 
 // Function literal is highest operator precedence.
 Expression: Expression = {
-    <fl:FunctionLiteral> => Expression::Literal(Literal::Function(fl)),
+    <fl:FunctionLiteral> => Expression::Literal(Literal::Function(Rc::new(fl))),
     BooleanExpression,
 }
 
@@ -189,7 +189,7 @@ FunctionLiteral: Function = {
     "fn" "(" <p:Comma<Ident>> ")" <b:FunctionBody> =>
     Function {
         parameters: p,
-        body: b,
+        body: Rc::new(b),
     },
 }
 
@@ -255,11 +255,12 @@ ElseBody: Block = {
 }
 
 FunctionInvocation: FunctionInvocation = {
-    <se:SimpleExpression> "(" <v:Comma<Expression>> ")" =>
-
-    FunctionInvocation {
-        closure_expression: Rc::new(se),
-        parameters: v,
+    <se:SimpleExpression> "(" <v:Comma<Expression>> ")" => {
+        let parameters = v.into_iter().map(|expr| Rc::new(expr)).collect::<Vec<_>>();
+        FunctionInvocation {
+            closure_expression: Rc::new(se),
+            parameters,
+        }
     },
 }
 

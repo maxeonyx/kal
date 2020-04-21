@@ -128,13 +128,13 @@ pub enum Literal {
     Int(i64),
     Object(ObjectLiteral),
     List(ListLiteral),
-    Function(Function),
+    Function(Rc<Function>),
 }
 
 #[derive(Debug)]
 pub struct Function {
     pub parameters: Vec<Ident>,
-    pub body: Block,
+    pub body: Rc<Block>,
 }
 
 #[derive(Debug)]
@@ -146,7 +146,7 @@ pub struct Block {
 #[derive(Debug)]
 pub struct FunctionInvocation {
     pub closure_expression: Rc<Expression>,
-    pub parameters: Vec<Expression>,
+    pub parameters: Vec<Rc<Expression>>,
 }
 
 #[derive(Debug)]

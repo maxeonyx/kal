@@ -30,13 +30,13 @@ pub enum Value {
 
 #[derive(Debug, Clone)]
 pub struct Closure {
-    pub code: &'static Function,
-    pub ctx: KalRef<Context>,
+    pub code: Rc<Function>,
+    pub scope: KalRef<Scope>,
 }
 
 impl Closure {
-    pub fn new(code: &'static Function, ctx: KalRef<Context>) -> Self {
-        Closure { code, ctx }
+    pub fn new(code: Rc<Function>, scope: KalRef<Scope>) -> Self {
+        Closure { code, scope }
     }
 }
 
@@ -66,17 +66,38 @@ impl SymbolGenerator {
 }
 
 #[derive(Debug)]
+pub struct Scope {
+    parent: Option<KalRef<Scope>>,
+    bindings: HashMap<String, Value>,
+}
+impl Scope {
+    fn new() -> Self {
+        Self {
+            parent: None,
+            bindings: HashMap::new(),
+        }
+    }
+
+    fn extend(parent: KalRef<Scope>) -> KalRef<Self> {
+        KalRef::new(Self {
+            parent: Some(parent),
+            bindings: HashMap::new(),
+        })
+    }
+}
+
+#[derive(Debug)]
 pub struct Context {
-    scopes: Vec<HashMap<Key, Value>>,
+    scope_chain: KalRef<Scope>,
     eval_stack: Vec<Rc<dyn Eval>>,
     value_stack: Vec<Value>,
     sym_gen: Rc<SymbolGenerator>,
 }
 
 impl Context {
-    fn new(sym_gen: Rc<SymbolGenerator>) -> Self {
+    fn new(sym_gen: Rc<SymbolGenerator>, scope_chain: KalRef<Scope>) -> Self {
         Self {
-            scopes: vec![HashMap::new()],
+            scope_chain,
             eval_stack: vec![],
             value_stack: vec![],
             sym_gen,
@@ -85,30 +106,145 @@ impl Context {
 }
 
 pub struct Interpreter {
-    ctx: Context,
+    ctx_stack: Vec<Context>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         let sym_gen = Rc::new(SymbolGenerator::new());
+        let scope = KalRef::new(Scope::new());
         Interpreter {
-            ctx: Context::new(sym_gen),
+            ctx_stack: vec![Context::new(sym_gen, scope)],
         }
     }
 
-    pub fn eval(&mut self, statement: Rc<dyn Eval>) -> Value {
-        self.ctx.eval_stack.push(statement);
-        while self.ctx.eval_stack.len() > 0 {
-            let statement = self.ctx.eval_stack.pop().unwrap();
-
-            let result = statement.eval(&mut self.ctx);
-
-            result.map(|val| self.ctx.value_stack.push(val));
+    fn print_eval_stack(&self) {
+        println!("===== eval stack =====");
+        print!("[ ");
+        for eval in self.ctx().eval_stack.iter() {
+            print!("{} ", eval.short_name());
         }
+        println!("]");
+    }
 
-        debug_assert!(self.ctx.value_stack.len() == 1);
-        debug_assert!(self.ctx.eval_stack.len() == 0);
+    fn print_value_stack(&self) {
+        println!("===== value stack =====");
+        println!("{:#?}", self.ctx().value_stack);
+    }
 
-        self.ctx.value_stack.pop().expect("There was no value left on the value stack when execution finished. This is an implementation bug.")
+    fn print_ctx_stack(&self) {
+        println!("===== ctx stack =====");
+        println!("{:#?}", self.ctx_stack);
+    }
+
+    fn print_scope_chain(&self) {
+        println!("===== scope chain =====");
+        print!("[ ");
+        let mut scope = &self.ctx().scope_chain;
+        loop {
+            print!("{{ ");
+            for k in scope.bindings.keys() {
+                print!("{:?} ", k);
+            }
+            print!("}} ");
+
+            if let Some(parent) = &scope.parent {
+                scope = parent;
+            } else {
+                break;
+            }
+        }
+        println!("]");
+    }
+
+    pub fn eval(&mut self, statement: Rc<dyn Eval>) -> Value {
+        self.ctx_mut().eval_stack.push(statement);
+        loop {
+            while self.ctx().eval_stack.len() > 0 {
+                let statement = self.ctx_mut().eval_stack.pop().unwrap();
+
+                let result = statement.eval(self);
+
+                result.map(|val| self.ctx_mut().value_stack.push(val));
+            }
+
+            self.print_value_stack();
+            let value_left_over = self.pop_value();
+            self.pop_context();
+            if self.ctx_stack.len() > 0 {
+                self.ctx_mut().value_stack.push(value_left_over);
+            } else {
+                return value_left_over;
+            }
+        }
+    }
+
+    fn ctx(&self) -> &Context {
+        self.ctx_stack.last().unwrap()
+    }
+
+    fn branch_scope(&mut self) -> KalRef<Scope> {
+        let scope1 = Scope::extend(self.ctx().scope_chain.clone());
+        let scope2 = Scope::extend(self.ctx().scope_chain.clone());
+        self.ctx_mut().scope_chain = scope1;
+        scope2
+    }
+
+    fn ctx_mut(&mut self) -> &mut Context {
+        self.ctx_stack
+            .last_mut()
+            .expect("Not enough values in the context stack.")
+    }
+
+    fn push_context(&mut self, ctx: Context) {
+        self.ctx_stack.push(ctx);
+    }
+
+    fn pop_context(&mut self) {
+        self.ctx_stack
+            .pop()
+            .expect("Implementation error - no more contexts to pop.");
+    }
+
+    fn push_eval(&mut self, eval: Rc<dyn Eval>) {
+        self.ctx_mut().eval_stack.push(eval)
+    }
+
+    fn pop_value(&mut self) -> Value {
+        self.ctx_mut()
+            .value_stack
+            .pop()
+            .expect("Implementation error - not enough values on value_stack.")
+    }
+
+    fn push_scope(&mut self) {
+        let ctx = self.ctx_mut();
+        ctx.scope_chain = Scope::extend(ctx.scope_chain.clone())
+    }
+
+    fn pop_scope(&mut self) {
+        let ctx = self.ctx_mut();
+        ctx.scope_chain = ctx
+            .scope_chain
+            .parent
+            .as_ref()
+            .expect("Implementation error - no more scopes to pop.")
+            .clone();
+    }
+
+    fn create_binding(&mut self, name: String, value: Value) {
+        // create new scope if the current one has been borrowed? (by a closure)
+
+        self.ctx_mut()
+            .scope_chain
+            .borrow_mut()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Implementation error - borrow_mut failed create_binding for {:?}.",
+                    &name,
+                )
+            })
+            .bindings
+            .insert(name, value);
     }
 }
