@@ -1,5 +1,4 @@
 use new_interpreter::Interpreter;
-use std::rc::Rc;
 
 #[macro_use]
 extern crate lalrpop_util;
@@ -21,7 +20,7 @@ fn main() {
 
     let mut runtime = Interpreter::new();
 
-    let result = runtime.eval(Rc::new(ast));
+    let result = runtime.eval(ast);
 
     println!("{:#?}", result);
 }

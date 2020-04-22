@@ -2,8 +2,8 @@ use crate::ast;
 use crate::kal_ref::KalRef;
 use std::{cell::Cell, collections::HashMap, rc::Rc};
 
-mod eval;
-mod eval_impls;
+pub mod eval;
+pub mod eval_impls;
 
 use ast::Function;
 use eval::Eval;
@@ -50,19 +50,17 @@ impl PartialEq for Closure {
 
 #[derive(Debug)]
 struct SymbolGenerator {
-    counter: Cell<u64>,
+    counter: u64,
 }
 
 impl SymbolGenerator {
     fn new() -> Self {
-        SymbolGenerator {
-            counter: Cell::new(0),
-        }
+        SymbolGenerator { counter: 0 }
     }
 
-    fn gen(&self) -> Value {
-        let n = self.counter.get();
-        self.counter.set(n + 1);
+    fn gen(&mut self) -> Value {
+        let n = self.counter;
+        self.counter += 1;
         Value::Symbol(n)
     }
 }
@@ -93,21 +91,20 @@ pub struct Context {
     scope_chain: KalRef<Scope>,
     eval_stack: Vec<Rc<dyn Eval>>,
     value_stack: Vec<Value>,
-    sym_gen: Rc<SymbolGenerator>,
 }
 
 impl Context {
-    fn new(sym_gen: Rc<SymbolGenerator>, scope_chain: KalRef<Scope>) -> Self {
+    fn new(scope_chain: KalRef<Scope>) -> Self {
         Self {
             scope_chain,
             eval_stack: vec![],
             value_stack: vec![],
-            sym_gen,
         }
     }
 }
 
 pub struct Interpreter {
+    sym_gen: SymbolGenerator,
     ctx_stack: Vec<Context>,
     // resume_stack: Vec<Context>,
     // handle_stack: Vec<Context>,
@@ -115,10 +112,11 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
-        let sym_gen = Rc::new(SymbolGenerator::new());
+        let sym_gen = SymbolGenerator::new();
         let scope = KalRef::new(Scope::new());
         Interpreter {
-            ctx_stack: vec![Context::new(sym_gen, scope)],
+            sym_gen,
+            ctx_stack: vec![Context::new(scope)],
         }
     }
 

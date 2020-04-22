@@ -7,14 +7,12 @@ use std::{collections::HashMap, rc::Rc};
 fn eval_file(path: &str) -> Value {
     let text =
         std::fs::read_to_string(path).unwrap_or_else(|_| panic!("Could not read file {:?}", path));
-    let ast = Box::new(
-        crate::kal_grammar::BlockInnerParser::new()
-            .parse(&text)
-            .unwrap_or_else(|_| panic!("Failed to parse file {:?}.", path)),
-    );
+    let ast = crate::kal_grammar::BlockInnerParser::new()
+        .parse(&text)
+        .unwrap_or_else(|_| panic!("Failed to parse file {:?}.", path));
     let mut runtime = Interpreter::new();
 
-    runtime.eval(Rc::new(*ast))
+    runtime.eval(ast)
 }
 
 macro_rules! test {

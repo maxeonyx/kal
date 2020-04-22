@@ -1,5 +1,4 @@
 use crate::ast::*;
-use std::collections::HashMap;
 use std::str::FromStr;
 use std::rc::Rc;
 
@@ -17,66 +16,65 @@ Comma<T>: Vec<T> = {
     },
 };
 
-Block: Block = {
+Block: Rc<Block> = {
 	"{" <b:BlockInnerNotEmpty> "}" => b,
 };
 
 // kal files are "block inners".
 // Essentially they are zero parameter functions
 // We explicitly allow empty files.
-pub BlockInner: Block = {
+pub BlockInner: Rc<Block> = {
     =>
-        Block {
+        Rc::new(Block {
             statements: Vec::new(),
             expression: None,
-        },
-    <e:Expression> =>
-        Block {
+        }),
+    <expr:Expression> =>
+        Rc::new(Block {
             statements: Vec::new(),
-            expression: Some(Rc::new(e)),
-        },
+            expression: Some(expr),
+        }),
     <v:(<Statement> ";")+> <e:Expression?> =>
-        Block {
+        Rc::new(Block {
             statements: v,
-            expression: e.map(|expr| Rc::new(expr)),
-        },
+            expression: e,
+        }),
 }
 
 // Blocks do not allow the block to be empty. This means that lone curly braces are empty objects instead.
-pub BlockInnerNotEmpty: Block = {
+pub BlockInnerNotEmpty: Rc<Block> = {
     <e:Expression> =>
-        Block {
+        Rc::new(Block {
             statements: Vec::new(),
-            expression: Some(Rc::new(e)),
-        },
-    <v:(<Statement> ";")+> <e:Expression?> => {
-        Block {
+            expression: Some(e),
+        }),
+    <v:(<Statement> ";")+> <e:Expression?> =>
+        Rc::new(Block {
             statements: v,
-            expression: e.map(|expr| Rc::new(expr)),
-        }
-    }
+            expression: e,
+        }),
 }
 
-Statement: Rc<Statement> = {
-    <le:LetStatement> => Rc::new(Statement::Let(le)),
-    <a:Assignment> => Rc::new(Statement::Assignment(a)),
-    <e:Expression> => Rc::new(Statement::Expression(e)),
+Statement: Rc<dyn Statement> = {
+    <le:LetStatement> => le,
+    <a:Assignment> => a,
+    <e:Expression> => e.into_statement(),
 }
 
 // Function literal is highest operator precedence.
-Expression: Expression = {
-    <fl:FunctionLiteral> => Expression::Literal(Literal::Function(Rc::new(fl))),
-    <send:SendExpr> => Expression::Send(send),
-    <h:Handle> => Expression::Handle(h),
+Expression: Rc<dyn Expression> = {
+    <f:Function> => f,
+    <s:SendExpr> => s,
+    <h:Handle> => h,
     BooleanExpression,
 }
 
-BooleanExpression: Expression = {
-    <l:BooleanExpression> <o:BooleanOperator> <r:ComparisonExpression> =>
-        Expression::Boolean(BooleanExpression {
-            left: Rc::new(l),
-            right: Rc::new(r),
-            operator: o,
+BooleanExpression: Rc<dyn Expression> = {
+    <left:BooleanExpression> <operator:BooleanOperator> <right:ComparisonExpression> =>
+        Rc::new(BooleanExpression {
+            left,
+            right,
+            operator,
         }),
     NotExpression,
 }
@@ -87,21 +85,21 @@ BooleanOperator: BooleanOperator = {
     "xor" => BooleanOperator::Xor,
 }
 
-NotExpression: Expression = {
-    "not" <e:NotExpression> =>
-        Expression::Not(NotExpression {
-            expr: Rc::new(e),
+NotExpression: Rc<dyn Expression> = {
+    "not" <expr:NotExpression> =>
+        Rc::new(NotExpression {
+            expr,
         }),
     ComparisonExpression,
 }
 
-ComparisonExpression: Expression = {
-    <l:ComparisonExpression> <o:ComparisonOperator> <r:AddExpression> =>
-    Expression::Comparison(ComparisonExpression {
-        left: Rc::new(l),
-        right: Rc::new(r),
-        operator: o,
-    }),
+ComparisonExpression: Rc<dyn Expression> = {
+    <left:ComparisonExpression> <operator:ComparisonOperator> <right:AddExpression> =>
+        Rc::new(ComparisonExpression {
+            left,
+            right,
+            operator,
+        }),
     AddExpression,
 }
 
@@ -114,103 +112,103 @@ ComparisonOperator: ComparisonOperator = {
     ">" => ComparisonOperator::Greater,
 }
 
-AddExpression: Expression = {
-    <l:AddExpression> "+" <r:MultiplyExpression> =>
-        Expression::Numeric(NumericExpression {
-            left: Rc::new(l),
-            right: Rc::new(r),
+AddExpression: Rc<dyn Expression> = {
+    <left:AddExpression> "+" <right:MultiplyExpression> =>
+        Rc::new(NumericExpression {
+            left,
+            right,
             operator: NumericOperator::Add,
         }),
-    <l:AddExpression> "-" <r:MultiplyExpression> =>
-        Expression::Numeric(NumericExpression {
-            left: Rc::new(l),
-            right: Rc::new(r),
+    <left:AddExpression> "-" <right:MultiplyExpression> =>
+        Rc::new(NumericExpression {
+            left,
+            right,
             operator: NumericOperator::Subtract,
         }),
     MultiplyExpression,
 }
 
-MultiplyExpression: Expression = {
-    <l:MultiplyExpression> "*" <r:NormalExpression> =>
-        Expression::Numeric(NumericExpression {
-            left: Rc::new(l),
-            right: Rc::new(r),
+MultiplyExpression: Rc<dyn Expression> = {
+    <left:MultiplyExpression> "*" <right:NormalExpression> =>
+        Rc::new(NumericExpression {
+            left,
+            right,
             operator: NumericOperator::Multiply,
         }),
-    <l:MultiplyExpression> "/" <r:NormalExpression> =>
-        Expression::Numeric(NumericExpression {
-            left: Rc::new(l),
-            right: Rc::new(r),
+    <left:MultiplyExpression> "/" <right:NormalExpression> =>
+        Rc::new(NumericExpression {
+            left,
+            right,
             operator: NumericOperator::Divide,
         }),
     NegativeExpression,
 }
 
-NegativeExpression: Expression = {
-    "-" <e:NormalExpression> =>
-        Expression::Negative(NegativeExpression {
-            expr: Rc::new(e),
+NegativeExpression: Rc<dyn Expression> = {
+    "-" <expr:NormalExpression> =>
+        Rc::new(NegativeExpression {
+            expr,
         }),
     NormalExpression,
 }
 
-NormalExpression: Expression = {
-    <l:Literal> => Expression::Literal(l),
-    <ie:IfExpression> => Expression::If(ie),
+NormalExpression: Rc<dyn Expression> = {
+    <l:Literal> => l,
+    <i:IfExpression> => i,
     SimpleExpression,
 }
 
-SimpleExpression: Expression = {
-    <i:Ident> => Expression::Ident(i),
-    <fi:FunctionInvocation> => Expression::FunctionInvocation(fi),
-    <de:DotExpression> => Expression::Dot(de),
-    <ie:IndexExpression> => Expression::Index(ie),
+SimpleExpression: Rc<dyn Expression> = {
+    <i:Ident> => Rc::new(i),
+    <fi:FunctionInvocation> => fi,
+    <de:DotExpression> => de,
+    <ie:IndexExpression> => ie,
     <pe:ParenExpression> => pe,
 }
 
-DotExpression: DotExpression = {
-    <se:SimpleExpression> "." <i:Ident> =>
-        DotExpression {
-            base: Rc::new(se),
-            prop: i,
-        },
+DotExpression: Rc<DotExpression> = {
+    <base:SimpleExpression> "." <prop:Ident> =>
+        Rc::new(DotExpression {
+            base,
+            prop,
+        }),
 }
 
-IndexExpression: IndexExpression = {
+IndexExpression: Rc<IndexExpression> = {
     <base:SimpleExpression> "[" <index:Expression> "]" =>
-        IndexExpression {
-            base: Rc::new(base),
-            index: Rc::new(index),
-        },
+        Rc::new(IndexExpression {
+            base,
+            index,
+        }),
 }
 
-ParenExpression: Expression = {
+ParenExpression: Rc<dyn Expression> = {
     "(" <e:Expression> ")" => e,
 }
 
-FunctionLiteral: Function = {
-    "fn" "(" <p:Comma<Ident>> ")" <b:FunctionBody> =>
-    Function {
-        parameters: p,
-        body: Rc::new(b),
-    },
+Function: Rc<Function> = {
+    "fn" "(" <parameters:Comma<Ident>> ")" <body:FunctionBody> =>
+    Rc::new(Function {
+        parameters,
+        body,
+    }),
 }
 
-FunctionBody: Block = {
-    <e: Expression> => Block {
-        statements: Vec::new(),
-        expression: Some(Rc::new(e)),
-    },
+FunctionBody: Rc<Block> = {
+    <e: Expression> =>
+        Rc::new(Block {
+            statements: Vec::new(),
+            expression: Some(Rc::new(e)),
+        }),
     <b: Block> => b,
 }
 
-LetStatement: LetStatement = {
-    "let" <m:Mut> <i:Ident> "=" <e:Expression> =>
-    LetStatement {
-        mutable: m,
-        variable: i,
-        expr: Rc::new(e),
-    },
+LetStatement: Rc<LetStatement> = {
+    "let" <ident:Ident> "=" <expr:Expression> =>
+    Rc::new(LetStatement {
+        ident,
+        expr,
+    }),
 }
 
 Mut: bool = {
@@ -218,104 +216,89 @@ Mut: bool = {
     "mut" => true,
 }
 
-Assignment: Assignment = {
-    <l:Location> "=" <e:Expression> =>
-        Assignment {
-            location: Rc::new(l),
-            expr: Rc::new(e),
-        }
+Assignment: Rc<Assignment> = {
+    <location:Location> "=" <expr:Expression> =>
+        Rc::new(Assignment {
+            location,
+            expr,
+        }),
 }
 
-Location: Location = {
-    <i:Ident> => Location::Ident(i),
+Location: String = {
+    <i:Ident> => i,
 }
 
-IfExpression: IfExpression = {
-    "if" <c:Expression> <b:Block> <else_ifs:ElseIf*> <eb:ElseBody?> =>
+IfExpression: Rc<IfExpression> = {
+    "if" <cond:Expression> <body:Block> <else_ifs:ElseIf*> <else_body:ElseBody?> =>
     {
-        let mut if_parts = else_ifs;
-        if_parts.insert(0, IfPart {
-            cond: c,
-            body: b,
+        let mut ifs = else_ifs;
+        ifs.insert(0, IfPart {
+            cond,
+            body,
         });
-        IfExpression {
-            ifs: if_parts,
-            else_body: eb
-        }
-    }
+        Rc::new(IfExpression {
+            ifs,
+            else_body,
+        })
+    },
 }
 
 ElseIf: IfPart = {
-    "else" "if" <c:Expression> <b:Block> =>
+    "else" "if" <cond:Expression> <body:Block> =>
         IfPart {
-            cond: c,
-            body: b,
-        }
+            cond,
+            body,
+        },
 }
 
-ElseBody: Block = {
+ElseBody: Rc<Block> = {
     "else" <b:Block> => b,
 }
 
-FunctionInvocation: FunctionInvocation = {
-    <se:SimpleExpression> "(" <v:Comma<Expression>> ")" => {
-        let parameters = v.into_iter().map(|expr| Rc::new(expr)).collect::<Vec<_>>();
-        FunctionInvocation {
-            closure_expression: Rc::new(se),
+FunctionInvocation: Rc<FunctionInvocation> = {
+    <base:SimpleExpression> "(" <parameters:Comma<Expression>> ")" =>
+        Rc::new(FunctionInvocation {
+            base,
             parameters,
-        }
-    },
+        }),
 }
 
-Literal: Literal = {
-    "null" => Literal::Null,
-    "true" => Literal::Bool(true),
-    "false" => Literal::Bool(false),
-    "symbol" => Literal::Symbol,
-    <n:Int> => Literal::Int(n),
+Literal: Rc<dyn Expression> = {
+    "null" => Rc::new(Null),
+    "true" => Rc::new(Bool(true)),
+    "false" => Rc::new(Bool(false)),
+    "symbol" => Rc::new(Symbol),
+    <n:Int> => Rc::new(Int(n)),
     //<s:Str> => Literal::String(s),
-    <l:List> => Literal::List(l),
-    <o:Object> => Literal::Object(o),
+    <l:List> => l,
+    <o:Object> => o,
 }
 
-List: ListLiteral = {
-    "[" <v:Comma<ListLiteralElem>> "]" =>
-
-    ListLiteral {
-        elements: v,
-    },
+List: Rc<List> = {
+    "[" <elements:Comma<ListElem>> "]" =>
+        Rc::new(List {
+            elements,
+        }),
 }
 
-ListLiteralElem: ListLiteralElem = {
-    <e:Expression> => ListLiteralElem::Elem(e),
-    "..." <se:SimpleExpression> => ListLiteralElem::Spread(se),
+ListElem: ListElem = {
+    <e:Expression> => ListElem::Elem(e),
+    "..." <e:SimpleExpression> => ListElem::Spread(e),
 }
 
-Object: ObjectLiteral = {
-    "{" <v:Comma<ObjectKV>> "}" =>
-
-    {
-        let mut h = HashMap::new();
-        for (i, e) in v {
-            h.insert(i, e);
-        }
-
-        ObjectLiteral {
-            map: h,
-        }
-    },
+Object: Rc<Object> = {
+    "{" <pairs:Comma<ObjectKV>> "}" =>
+        Rc::new(Object {
+            pairs,
+        }),
 }
 
-ObjectKV: (Ident, Expression) = {
+ObjectKV: (String, Rc<dyn Expression>) = {
     <i:Ident> ":" <e:Expression> => (i, e),
 }
 
-Ident: Ident = {
-    <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> =>
-
-    Ident {
-        name: s.to_owned(),
-    },
+Ident: String = {
+    <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> => s.to_owned(),
 }
 
 Int: i64 = {
@@ -324,12 +307,12 @@ Int: i64 = {
 }
 
 
-Handle: Handle = {
+Handle: Rc<Handle> = {
     "handle" <expr:FunctionInvocation> "{" <matches:Comma<HandleMatch>> "}" =>
-        Handle {
-            expr: Rc::new(expr),
+        Rc::new(Handle {
+            expr,
             matches,
-        }
+        }),
 }
 
 HandleMatch: HandleMatch = {
@@ -337,14 +320,14 @@ HandleMatch: HandleMatch = {
         HandleMatch {
             symbol,
             param,
-            block: Rc::new(block),
-        }
+            block,
+        },
 }
 
-SendExpr: SendExpr = {
-    "send" <symbol:Ident> <e:Expression> =>
-        SendExpr {
+SendExpr: Rc<SendExpr> = {
+    "send" <symbol:Ident> <expr:Expression> =>
+        Rc::new(SendExpr {
             symbol,
-            expr: Rc::new(e),
-        }
+            expr,
+        }),
 }

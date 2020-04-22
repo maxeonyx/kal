@@ -1,6 +1,5 @@
-use super::{eval::Eval, Closure, Context, Interpreter, Scope, Value};
-use crate::{ast, kal_ref::KalRef};
-use ast::Literal;
+use super::{eval::Eval, Context, Interpreter, Scope, Value};
+use crate::ast;
 use std::{fmt, rc::Rc};
 
 struct Custom<T: Fn(&mut Interpreter) -> Option<Value>> {
@@ -23,62 +22,39 @@ impl<T: Fn(&mut Interpreter) -> Option<Value>> Eval for Custom<T> {
     }
 }
 
-impl Eval for ast::Statement {
-    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
-        use ast::Statement::*;
-        match self {
-            Let(let_statement) => let_statement.eval(int),
-            _ => unimplemented!("{}", self.short_name()),
-            //Assignment(assignment) => assignment.eval(int),
-        }
+impl Eval for ast::Null {
+    fn eval(&self, _: &mut Interpreter) -> Option<Value> {
+        Some(Value::Null)
     }
     fn short_name(&self) -> &str {
-        "Statement"
+        "LiteralNull"
     }
 }
 
-impl Eval for ast::Expression {
+impl Eval for ast::Symbol {
     fn eval(&self, int: &mut Interpreter) -> Option<Value> {
-        use ast::Expression::*;
-        match self {
-            Literal(literal) => literal.eval(int),
-            FunctionInvocation(func_invo) => func_invo.eval(int),
-            Numeric(numeric) => numeric.eval(int),
-            Ident(ident) => ident.eval(int),
-            //If(if_expr) => if_expr.eval(int),
-            //Comparison(comparison) => comparison.eval(int),
-            //Dot(dot_expr) => dot_expr.eval(int),
-            //Index(index_expr) => index_expr.eval(int),
-            //Boolean(bool_expr) => bool_expr.eval(int),
-            //Not(not_expr) => not_expr.eval(int),
-            Negative(neg) => neg.eval(int),
-            _ => unimplemented!("{}", self.short_name()),
-        }
+        Some(int.sym_gen.gen())
     }
     fn short_name(&self) -> &str {
-        "Expression"
+        "Symbol"
     }
 }
 
-impl Eval for ast::Literal {
+impl Eval for ast::Bool {
     fn eval(&self, int: &mut Interpreter) -> Option<Value> {
-        use ast::Literal::*;
-        match self {
-            Null => Some(Value::Null),
-            //Bool(val) => Some(Value::Bool(*val)),
-            Int(num) => Some(Value::Int(*num)),
-            Symbol => Some(int.ctx().sym_gen.gen()),
-            Function(func) => Some(Value::Closure(KalRef::new(Closure::new(
-                func.clone(),
-                int.branch_scope(),
-            )))),
-            //Object(obj) => obj.eval(int),
-            //List(list) => list.eval(int),
-            _ => unimplemented!("{}", self.short_name()),
-        }
+        Some(Value::Bool(self.0))
     }
     fn short_name(&self) -> &str {
-        "Literal"
+        "Bool"
+    }
+}
+
+impl Eval for ast::Int {
+    fn eval(&self, int: &mut Interpreter) -> Option<Value> {
+        Some(Value::Int(self.0))
+    }
+    fn short_name(&self) -> &str {
+        "Int"
     }
 }
 
@@ -93,13 +69,13 @@ impl Eval for ast::Block {
         }));
 
         if let Some(expr) = &self.expression {
-            int.push_eval(expr.clone());
+            int.push_eval(expr.into_eval());
         } else {
-            int.push_eval(Rc::new(Literal::Null));
+            int.push_eval(Rc::new(ast::Null));
         }
 
         for statement in self.statements.iter().rev() {
-            int.push_eval(statement.clone());
+            int.push_eval(statement.into_eval());
         }
         int.push_eval(Rc::new(Custom {
             name: "PushScope",
@@ -117,16 +93,16 @@ impl Eval for ast::Block {
 
 impl Eval for ast::LetStatement {
     fn eval(&self, int: &mut Interpreter) -> Option<Value> {
-        let name = self.variable.name.clone();
+        let name = self.ident.clone();
         int.push_eval(Rc::new(Custom {
             name: "LetInner",
-            function: move |int| {
+            function: |int| {
                 let val = int.pop_value();
                 int.create_binding(name.clone(), val);
                 None
             },
         }));
-        int.push_eval(self.expr.clone());
+        int.push_eval(self.expr.into_eval());
         None
     }
     fn short_name(&self) -> &str {
@@ -161,8 +137,8 @@ impl Eval for ast::NumericExpression {
                 Some(val)
             },
         }));
-        int.push_eval(self.left.clone());
-        int.push_eval(self.right.clone());
+        int.push_eval(self.left.into_eval());
+        int.push_eval(self.right.into_eval());
         None
     }
     fn short_name(&self) -> &str {
@@ -188,7 +164,7 @@ impl Eval for ast::NegativeExpression {
                 Some(Value::Int(val))
             },
         }));
-        int.push_eval(self.expr.clone());
+        int.push_eval(self.expr.into_eval());
         None
     }
     fn short_name(&self) -> &str {
@@ -196,11 +172,11 @@ impl Eval for ast::NegativeExpression {
     }
 }
 
-impl Eval for ast::Ident {
+impl Eval for String {
     fn eval(&self, int: &mut Interpreter) -> Option<Value> {
         let mut scope = &int.ctx().scope_chain;
         loop {
-            if let Some(value) = scope.bindings.get(&self.name) {
+            if let Some(value) = scope.bindings.get(self) {
                 return Some(value.clone());
             }
 
@@ -209,7 +185,7 @@ impl Eval for ast::Ident {
                 continue;
             }
 
-            panic!("Could not resolve name {:?}", self.name);
+            panic!("Could not resolve name {:?}", self);
         }
     }
     fn short_name(&self) -> &str {
@@ -228,12 +204,7 @@ impl Eval for ast::FunctionInvocation {
                     Value::Closure(closure) => closure,
                     _ => panic!("Cannot call value other than closure."),
                 };
-                let param_names = closure
-                    .code
-                    .parameters
-                    .iter()
-                    .map(|ident| ident.name.clone())
-                    .collect::<Vec<_>>();
+                let param_names = closure.code.parameters;
 
                 let body = closure.code.body.clone();
                 let scope = Scope::extend(closure.scope.clone());
@@ -249,7 +220,7 @@ impl Eval for ast::FunctionInvocation {
                     values.push(int.pop_value());
                 }
 
-                int.push_context(Context::new(int.ctx().sym_gen.clone(), scope));
+                int.push_context(Context::new(scope));
 
                 for (name, value) in param_names.into_iter().zip(values) {
                     int.create_binding(name, value);
@@ -261,10 +232,10 @@ impl Eval for ast::FunctionInvocation {
             },
         }));
 
-        int.push_eval(self.closure_expression.clone());
+        int.push_eval(self.base.into_eval());
 
         for expr in self.parameters.iter() {
-            int.push_eval(expr.clone());
+            int.push_eval(expr.into_eval());
         }
 
         None
@@ -273,7 +244,3 @@ impl Eval for ast::FunctionInvocation {
         "FunctionInvocation"
     }
 }
-
-// impl Eval for ast::Handle {
-
-// }
