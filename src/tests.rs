@@ -65,6 +65,8 @@ test! { fn_chained, Value::Int(23) }
 
 test! { fn_null, Value::Null }
 
+test! { fn_multiple_statements, Value::Int(100) }
+
 test! { fn_recursive_factorial, Value::Int(120) }
 
 test! { if_true, Value::Int(71) }
@@ -140,3 +142,5 @@ test! { mut_num, Value::Int(2) }
 test! { mut_multi_let, Value::Int(999) }
 
 test! { mut_increment, Value::Int(61) }
+
+test! { handle, Value::Int(9) }

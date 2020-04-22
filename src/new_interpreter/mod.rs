@@ -109,6 +109,8 @@ impl Context {
 
 pub struct Interpreter {
     ctx_stack: Vec<Context>,
+    // resume_stack: Vec<Context>,
+    // handle_stack: Vec<Context>,
 }
 
 impl Interpreter {

@@ -28,7 +28,7 @@ impl Eval for ast::Statement {
         use ast::Statement::*;
         match self {
             Let(let_statement) => let_statement.eval(int),
-            _ => unimplemented!(),
+            _ => unimplemented!("{}", self.short_name()),
             //Assignment(assignment) => assignment.eval(int),
         }
     }
@@ -52,7 +52,7 @@ impl Eval for ast::Expression {
             //Boolean(bool_expr) => bool_expr.eval(int),
             //Not(not_expr) => not_expr.eval(int),
             Negative(neg) => neg.eval(int),
-            _ => unimplemented!(),
+            _ => unimplemented!("{}", self.short_name()),
         }
     }
     fn short_name(&self) -> &str {
@@ -74,7 +74,7 @@ impl Eval for ast::Literal {
             )))),
             //Object(obj) => obj.eval(int),
             //List(list) => list.eval(int),
-            _ => unimplemented!(),
+            _ => unimplemented!("{}", self.short_name()),
         }
     }
     fn short_name(&self) -> &str {
@@ -273,3 +273,7 @@ impl Eval for ast::FunctionInvocation {
         "FunctionInvocation"
     }
 }
+
+// impl Eval for ast::Handle {
+
+// }

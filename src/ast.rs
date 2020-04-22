@@ -5,6 +5,7 @@ use std::rc::Rc;
 pub enum Statement {
     Let(LetStatement),
     Assignment(Assignment),
+    Expression(Expression),
 }
 
 #[derive(Debug)]
@@ -38,6 +39,8 @@ pub enum Expression {
     Boolean(BooleanExpression),
     Not(NotExpression),
     Negative(NegativeExpression),
+    Send(SendExpr),
+    Handle(Handle),
 }
 
 #[derive(Debug)]
@@ -168,4 +171,23 @@ pub enum ListLiteralElem {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Ident {
     pub name: String,
+}
+
+#[derive(Debug)]
+pub struct Handle {
+    pub expr: Rc<FunctionInvocation>,
+    pub matches: Vec<HandleMatch>,
+}
+
+#[derive(Debug)]
+pub struct HandleMatch {
+    pub symbol: Ident,
+    pub param: Ident,
+    pub block: Rc<Block>,
+}
+
+#[derive(Debug)]
+pub struct SendExpr {
+    pub symbol: Ident,
+    pub expr: Rc<Expression>,
 }

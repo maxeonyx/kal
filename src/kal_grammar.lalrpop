@@ -60,11 +60,14 @@ pub BlockInnerNotEmpty: Block = {
 Statement: Rc<Statement> = {
     <le:LetStatement> => Rc::new(Statement::Let(le)),
     <a:Assignment> => Rc::new(Statement::Assignment(a)),
+    <e:Expression> => Rc::new(Statement::Expression(e)),
 }
 
 // Function literal is highest operator precedence.
 Expression: Expression = {
     <fl:FunctionLiteral> => Expression::Literal(Literal::Function(Rc::new(fl))),
+    <send:SendExpr> => Expression::Send(send),
+    <h:Handle> => Expression::Handle(h),
     BooleanExpression,
 }
 
@@ -318,4 +321,30 @@ Ident: Ident = {
 Int: i64 = {
     // `unwrap` todo convert to fallible operation (e.g. Int or TooLong)
     <i:r"0|(?:[1-9][0-9]*)"> => i64::from_str(<>).unwrap(),
+}
+
+
+Handle: Handle = {
+    "handle" <expr:FunctionInvocation> "{" <matches:Comma<HandleMatch>> "}" =>
+        Handle {
+            expr: Rc::new(expr),
+            matches,
+        }
+}
+
+HandleMatch: HandleMatch = {
+    <symbol:Ident> <param:Ident> <block:Block> =>
+        HandleMatch {
+            symbol,
+            param,
+            block: Rc::new(block),
+        }
+}
+
+SendExpr: SendExpr = {
+    "send" <symbol:Ident> <e:Expression> =>
+        SendExpr {
+            symbol,
+            expr: Rc::new(e),
+        }
 }

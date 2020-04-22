@@ -1,0 +1,5 @@
+let add_one = fn (x) {
+    let x = x + 1;
+    x
+};
+add_one(99)
