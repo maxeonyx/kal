@@ -198,7 +198,7 @@ FunctionBody: Rc<Block> = {
     <e: Expression> =>
         Rc::new(Block {
             statements: Vec::new(),
-            expression: Some(Rc::new(e)),
+            expression: Some(e),
         }),
     <b: Block> => b,
 }

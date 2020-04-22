@@ -1,6 +1,6 @@
 use crate::ast;
 use crate::kal_ref::KalRef;
-use std::{cell::Cell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 pub mod eval;
 pub mod eval_impls;

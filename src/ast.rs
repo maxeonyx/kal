@@ -4,23 +4,21 @@ use std::{fmt::Debug, rc::Rc};
 
 pub trait Statement: Eval + IntoEval<dyn Eval> {}
 
-pub trait Expression: Statement + IntoStatement<dyn Statement> {}
-
 impl<T: Expression> Statement for T {}
 
 pub trait IntoStatement<T: ?Sized> {
-    fn into_statement(self) -> Rc<T>;
+    fn into_statement(self: Rc<Self>) -> Rc<T>;
 }
-impl<'a, T: Statement + 'a> IntoStatement<dyn Statement + 'a> for Rc<T> {
-    fn into_statement(self) -> Rc<dyn Statement + 'a> {
+impl<'a, T: Statement + 'a> IntoStatement<dyn Statement + 'a> for T {
+    fn into_statement(self: Rc<Self>) -> Rc<dyn Statement + 'a> {
         self
     }
 }
-impl<'a, T: Statement + 'a> IntoStatement<dyn Statement + 'a> for T {
-    fn into_statement(self) -> Rc<dyn Statement + 'a> {
-        Rc::new(self)
-    }
-}
+
+pub trait Expression: Statement + IntoStatement<dyn Statement> {}
+
+// Identifiers
+impl Expression for String {}
 
 #[derive(Debug)]
 pub struct Null;
@@ -50,6 +48,7 @@ pub struct Assignment {
     pub location: String,
     pub expr: Rc<dyn Expression>,
 }
+impl Statement for Assignment {}
 
 #[derive(Debug)]
 pub struct NegativeExpression {
@@ -61,6 +60,7 @@ impl Expression for NegativeExpression {}
 pub struct NotExpression {
     pub expr: Rc<dyn Expression>,
 }
+impl Expression for NotExpression {}
 
 #[derive(Debug)]
 pub struct BooleanExpression {
@@ -70,7 +70,7 @@ pub struct BooleanExpression {
 }
 impl Expression for BooleanExpression {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum BooleanOperator {
     And,
     Or,
@@ -127,7 +127,7 @@ pub enum NumericOperator {
 
 #[derive(Debug)]
 pub struct IfExpression {
-    pub else_body: Option<Rc<dyn Expression>>,
+    pub else_body: Option<Rc<Block>>,
     pub ifs: Vec<IfPart>,
 }
 impl Expression for IfExpression {}
@@ -135,7 +135,7 @@ impl Expression for IfExpression {}
 #[derive(Debug)]
 pub struct IfPart {
     pub cond: Rc<dyn Expression>,
-    pub body: Rc<dyn Expression>,
+    pub body: Rc<Block>,
 }
 
 #[derive(Debug)]

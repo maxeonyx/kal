@@ -1,7 +1,7 @@
 use crate::kal_ref::KalRef;
 use crate::new_interpreter::{Interpreter, Key, Value};
 
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 #[allow(dead_code)]
 fn eval_file(path: &str) -> Value {
