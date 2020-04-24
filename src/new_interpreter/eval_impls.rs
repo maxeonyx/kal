@@ -35,7 +35,67 @@ impl UnimplementedEval for ast::IndexExpression {
         "Index"
     }
 }
-impl UnimplementedEval for ast::ComparisonExpression {
+impl Eval for ast::ComparisonExpression {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let operator = self.operator;
+        int.push_eval(Rc::new(Custom {
+            name: "ComparisonInner",
+            function: move |int| {
+                let left = int.pop_value();
+                let right = int.pop_value();
+
+                use super::Value::*;
+                use ast::ComparisonOperator;
+                use ast::ComparisonOperator::*;
+
+                fn full_compare<T: std::cmp::Eq + std::cmp::PartialOrd>(
+                    operator: &ComparisonOperator,
+                    left: T,
+                    right: T,
+                ) -> bool {
+                    match operator {
+                        Equal => left == right,
+                        NotEqual => left != right,
+                        Less => left < right,
+                        Greater => left > right,
+                        LessEqual => left <= right,
+                        GreaterEqual => left >= right,
+                    }
+                }
+                fn eq_compare<T: std::cmp::PartialEq + std::fmt::Debug>(
+                    operator: &ComparisonOperator,
+                    left: T,
+                    right: T,
+                ) -> bool {
+                    match operator {
+                        Equal => left == right,
+                        NotEqual => left != right,
+                        _ => panic!(
+                            "Invalid comparison. Cannot apply {:?} to {:?} and {:?}",
+                            operator, left, right
+                        ),
+                    }
+                }
+                let result = match &(operator, &left, &right) {
+                    (operator, Int(left), Int(right)) => full_compare(operator, left, right),
+                    (operator, Bool(left), Bool(right)) => eq_compare(operator, left, right),
+                    (operator, Symbol(left), Symbol(right)) => eq_compare(operator, left, right),
+                    (operator, List(left), List(right)) => eq_compare(operator, left, right),
+                    (operator, Object(left), Object(right)) => eq_compare(operator, left, right),
+                    (operator, Closure(left), Closure(right)) => eq_compare(operator, left, right),
+                    (operator, Null, Null) => eq_compare(operator, left, right),
+                    _ => panic!(
+                        "Invalid comparison. Cannot apply {:?} to {:?} and {:?}",
+                        operator, left, right
+                    ),
+                };
+                int.push_value(Value::Bool(result));
+            },
+        }));
+
+        int.push_eval(self.left.clone().into_eval());
+        int.push_eval(self.right.clone().into_eval());
+    }
     fn short_name(&self) -> &str {
         "Comparison"
     }
@@ -60,7 +120,21 @@ impl UnimplementedEval for ast::Assignment {
         "Assignment"
     }
 }
-impl UnimplementedEval for ast::NotExpression {
+impl Eval for ast::NotExpression {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_eval(Rc::new(Custom {
+            name: "NotInner",
+            function: |int| {
+                let val = int.pop_value();
+                let val = match val {
+                    Value::Bool(b) => b,
+                    _ => panic!("not operator can only be applied to bools."),
+                };
+                int.push_value(Value::Bool(!val))
+            },
+        }));
+        int.push_eval(self.expr.clone().into_eval())
+    }
     fn short_name(&self) -> &str {
         "Not"
     }

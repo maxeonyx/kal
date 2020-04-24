@@ -99,7 +99,7 @@ pub struct ComparisonExpression {
 }
 impl Expression for ComparisonExpression {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ComparisonOperator {
     Equal,
     NotEqual,
