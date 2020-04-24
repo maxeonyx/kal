@@ -3,7 +3,6 @@ let gen = fn() {
     send yield 3;
     9
 };
-let val = handle gen() {
+handle gen() {
     yield num { num }
-};
-val
+}

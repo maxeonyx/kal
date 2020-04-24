@@ -109,6 +109,7 @@ pub enum SubContextType {
 
 #[derive(Debug)]
 pub struct SubContext {
+    num_scopes: u64,
     typ: SubContextType,
     eval_stack: Vec<Rc<dyn Eval>>,
     value_stack: Vec<Value>,
@@ -117,6 +118,7 @@ pub struct SubContext {
 impl SubContext {
     fn new(typ: SubContextType) -> Self {
         SubContext {
+            num_scopes: 0,
             typ,
             eval_stack: Vec::new(),
             value_stack: Vec::new(),
@@ -275,6 +277,14 @@ impl Interpreter {
     }
 
     fn pop_sub_context(&mut self) -> SubContext {
+        // release scopes that were created while the subcontext was active
+        // we do this because we can't branch scopes and also have mutability.
+        // this means that the subcontexts can't own scopes, but they *can* remember how many they created.
+        let num_scopes = self.current_sub_context().num_scopes;
+        for _ in 0..num_scopes {
+            self.pop_scope();
+        }
+
         self.current_fn_context()
             .sub_context_stack
             .pop()
@@ -305,7 +315,8 @@ impl Interpreter {
 
     fn push_scope(&mut self) {
         let ctx = self.current_fn_context();
-        ctx.scope = Scope::extend(ctx.scope.clone())
+        ctx.scope = Scope::extend(ctx.scope.clone());
+        self.current_sub_context().num_scopes += 1;
     }
 
     fn pop_scope(&mut self) {
@@ -316,6 +327,7 @@ impl Interpreter {
             .as_ref()
             .expect("Implementation error - no more scopes to pop.")
             .clone();
+        self.current_sub_context().num_scopes -= 1;
     }
 
     fn create_binding(&mut self, name: String, value: Value) {
