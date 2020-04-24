@@ -6,5 +6,4 @@ let gen = fn() {
 let val = handle gen() {
     yield num { num }
 };
-resume 88;
 val

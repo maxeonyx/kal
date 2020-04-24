@@ -1,0 +1,3 @@
+let error = symbol;
+let fail = fn() send error true;
+handle fail() {}

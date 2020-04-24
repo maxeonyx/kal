@@ -352,64 +352,95 @@ impl Eval for ast::FunctionInvocation {
         "FunctionInvocation"
     }
 }
+#[derive(Debug)]
+pub struct Handler {
+    match_arms: Vec<(u64, ast::HandleMatch)>,
+}
+impl Eval for Handler {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let effect = int.pop_value();
+        let effect = match effect {
+            Value::Effect(e) => e,
+            // if function returned normally, handle evaluates to that value.
+            _ => {
+                int.push_value(effect);
+                return;
+            }
+        };
+
+        let Effect { symbol, value, ctx } = effect.try_into_inner().expect("Couldn't get the context out of an effect. The effect was aliased when it shouldn't have been.");
+
+        int.push_sub_context(SubContext::new(SubContextType::Handle(
+            self.clone(),
+            Box::new(ctx),
+        )));
+
+        let match_arm = self
+            .match_arms
+            .clone()
+            .into_iter()
+            .find(|(sym, _)| *sym == symbol);
+
+        if let Some((_, ast::HandleMatch { param, block, .. })) = match_arm {
+            int.push_eval(Rc::new(PopScope));
+            int.push_eval(block);
+            int.push_eval(Rc::new(LetInner { name: param }));
+            // if PushScope added/consumed values, or changed the context, we would have to push an identity function here instead of value directly.
+            int.push_value(value);
+            int.push_eval(Rc::new(PushScope));
+        } else {
+            // if there is no match arm that handles this effect, establish a passthrough.
+            // this means sending the effect upwards, then resuming with whatever value we get back
+            int.push_eval(Rc::new(ResumeInner));
+            int.push_eval(Rc::new(SendInner));
+            int.push_value(value);
+            int.push_value(Value::Symbol(symbol));
+        }
+    }
+    fn short_name(&self) -> &str {
+        "Handler"
+    }
+}
+
+#[derive(Debug)]
+struct CreateHandler {
+    match_arms: Vec<ast::HandleMatch>,
+    expr: Rc<dyn ast::Expression>,
+}
+impl Eval for CreateHandler {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let self2 = Rc::try_unwrap(self).expect(
+            "Implementation error - can't unwrap CreateHandler. I will need to clone some stuff.",
+        );
+        let mut symbols = Vec::with_capacity(self2.match_arms.len());
+        for _ in 0..self2.match_arms.len() {
+            let symbol = int.pop_value();
+            let symbol = match symbol {
+                Value::Symbol(symbol) => symbol,
+                _ => panic!("Effect type in match arm must be a symbol."),
+            };
+            symbols.push(symbol);
+        }
+
+        int.push_eval(Rc::new(Handler {
+            match_arms: symbols
+                .into_iter()
+                .zip(self2.match_arms.into_iter())
+                .collect::<Vec<_>>(),
+        }));
+
+        int.push_eval(self2.expr.clone().into_eval());
+    }
+    fn short_name(&self) -> &str {
+        "CreateHandler"
+    }
+}
 
 impl Eval for ast::Handle {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let match_arms = self.match_arms.clone();
-        int.push_eval(Rc::new(Custom {
-            name: "HandleInner",
-            function: move |int| {
-                let effect = int.pop_value();
-                let effect = match effect {
-                    Value::Effect(e) => e,
-                    // if function returned normally, handle evaluates to that value.
-                    _ => {
-                        int.push_value(effect);
-                        return;
-                    }
-                };
-
-                let mut symbols = Vec::with_capacity(match_arms.len());
-                for _ in 0..match_arms.len() {
-                    let symbol = int.pop_value();
-                    let symbol = match symbol {
-                        Value::Symbol(symbol) => symbol,
-                        _ => panic!("Effect type in match arm must be a symbol."),
-                    };
-                    symbols.push(symbol);
-                }
-
-                let Effect { symbol, value, ctx } = effect.try_into_inner().expect("Couldn't get the context out of an effect. The effect was aliased when it shouldn't have been.");
-
-                int.push_sub_context(SubContext::new(SubContextType::Handle(Box::new(ctx))));
-
-                let match_arm = match_arms
-                    .clone()
-                    .into_iter()
-                    .zip(symbols)
-                    .find(|(_, sym)| *sym == symbol);
-
-                if let Some((ast::HandleMatch { param, block, .. }, _)) = match_arm {
-                    int.push_eval(Rc::new(PopScope));
-                    int.push_eval(block);
-                    int.push_eval(Rc::new(LetInner {
-                        name: param,
-                    }));
-                    // if PushScope added/consumed values, or changed the context, we would have to push an identity function here instead of value directly.
-                    int.push_value(value);
-                    int.push_eval(Rc::new(PushScope));
-                } else {
-                    // if there is no match arm that handles this effect, establish a passthrough.
-                    // this means sending the effect upwards, then resuming with whatever value we get back
-                    int.push_eval(Rc::new(ResumeInner));
-                    int.push_eval(Rc::new(SendInner));
-                    int.push_value(value);
-                    int.push_value(Value::Symbol(symbol));
-                }
-            },
-        }));
-
-        int.push_eval(self.expr.clone().into_eval());
+        let expr = self.expr.clone();
+        int.push_eval(Rc::new(CreateHandler { match_arms, expr }));
 
         // eagerly evaluate the symbols
         for match_arm in &self.match_arms {
@@ -466,7 +497,10 @@ impl Eval for ResumeInner {
             SubContextType::Plain => {
                 panic!("Cannot use \"resume\" except in a loop or effect handler")
             }
-            SubContextType::Handle(ctx) => {
+            SubContextType::Handle(handler, ctx) => {
+                // re-establish handler
+                int.push_eval(handler);
+
                 // switch to the context from the handled continuation.
                 int.push_fn_context(*ctx);
 
@@ -488,5 +522,32 @@ impl Eval for ast::Resume {
     }
     fn short_name(&self) -> &str {
         "Resume"
+    }
+}
+
+#[derive(Debug)]
+pub struct WrapperFunction {
+    pub body: Rc<dyn ast::Expression>,
+}
+impl Eval for WrapperFunction {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_eval(Rc::new(Custom {
+            name: "WrapperFunctionInner",
+            function: |int| {
+                let value = int.pop_value();
+                int.push_value(value)
+            },
+        }));
+
+        let self2 = Rc::try_unwrap(self)
+            .expect("Implementation error - Couldn't unwrap a WrapperFunction, it is aliased.");
+        let scope = Scope::extend(int.current_fn_context().scope.clone());
+
+        int.push_fn_context(FunctionContext::new(scope));
+        int.push_eval(self2.body.into_eval());
+    }
+
+    fn short_name(&self) -> &str {
+        "WrapperFunction"
     }
 }

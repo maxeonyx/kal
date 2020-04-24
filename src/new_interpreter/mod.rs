@@ -5,8 +5,9 @@ use std::{collections::HashMap, rc::Rc};
 pub mod eval;
 pub mod eval_impls;
 
-use ast::Function;
+use ast::{Expression, Function};
 use eval::Eval;
+use eval_impls::{Handler, WrapperFunction};
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -51,8 +52,8 @@ impl PartialEq for Closure {
 
 #[derive(Debug)]
 pub struct Effect {
-    symbol: u64,
-    value: Value,
+    pub symbol: u64,
+    pub value: Value,
     ctx: FunctionContext,
 }
 
@@ -103,7 +104,7 @@ impl Scope {
 #[derive(Debug)]
 pub enum SubContextType {
     Plain,
-    Handle(Box<FunctionContext>),
+    Handle(Rc<Handler>, Box<FunctionContext>),
 }
 
 #[derive(Debug)]
@@ -203,8 +204,9 @@ impl Interpreter {
     }
 
     #[allow(clippy::let_and_return)]
-    pub fn eval(&mut self, statement: Rc<dyn Eval>) -> Value {
-        self.push_eval(statement);
+    pub fn eval(&mut self, expression: Rc<dyn Expression>) -> Value {
+        let wrapper_function = WrapperFunction { body: expression };
+        self.push_eval(Rc::new(wrapper_function));
         let value_left_over = loop {
             // function contexts
             let value_left_over = loop {

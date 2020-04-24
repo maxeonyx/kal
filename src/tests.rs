@@ -21,7 +21,8 @@ macro_rules! test {
         #[test]
         pub fn $test_name() {
             let val = eval_file(&format!("examples/{}.kal", stringify!($test_name)));
-            assert!(val == $expected_val);
+            let expected = $expected_val;
+            assert!(val == expected, format!("Assertion failed: got {:?}, expected {:?}.", val, expected));
         }
     };
     {$test_name:ident, $expected_val:expr} => {
@@ -144,8 +145,28 @@ test! { mut_increment, Value::Int(61) }
 
 test! { handle_resume, Value::Int(9) }
 
+test! { handle_multiple_resume, Value::Int(81) }
+
 test! { handle_no_resume, Value::Int(3) }
 
 test! { handle_nested, Value::Int(55) }
 
 test! { handle_reassign, Value::Int(146) }
+
+#[test]
+fn handle_implicit() {
+    let val = eval_file("examples/handle_implicit.kal");
+    match val {
+        Value::Effect(effect) => assert!(effect.value == Value::Int(4)),
+        _ => panic!("Expected an effect value, got something else."),
+    }
+}
+
+#[test]
+fn handle_empty() {
+    let val = eval_file("examples/handle_empty.kal");
+    match val {
+        Value::Effect(effect) => assert!(effect.value == Value::Bool(true)),
+        _ => panic!("Expected an effect value, got something else."),
+    }
+}

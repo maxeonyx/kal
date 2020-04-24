@@ -1,8 +1,0 @@
-let yield = symbol;
-let gen = fn() {
-    send yield 146
-};
-let effect = gen();
-handle effect {
-    yield num { num }
-}

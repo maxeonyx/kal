@@ -1,0 +1,16 @@
+let yield = symbol;
+let gen = fn() {
+    let val = send yield 3;
+    let val2 = send yield val;
+    val2
+};
+
+let primes = fn() {
+    send yield 2;
+    send yield 3;
+};
+
+let val = handle gen() {
+    yield num { resume num * num; }
+};
+val
