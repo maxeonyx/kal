@@ -132,7 +132,7 @@ pub struct IfExpression {
 }
 impl Expression for IfExpression {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IfPart {
     pub cond: Rc<dyn Expression>,
     pub body: Rc<Block>,

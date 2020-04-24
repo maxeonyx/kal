@@ -100,7 +100,52 @@ impl Eval for ast::ComparisonExpression {
         "Comparison"
     }
 }
-impl UnimplementedEval for ast::IfExpression {
+
+#[derive(Debug)]
+pub struct IfInner {
+    index: usize,
+    ifs: Vec<ast::IfPart>,
+    else_body: Option<Rc<ast::Block>>,
+}
+impl Eval for IfInner {
+    fn eval(mut self: Rc<Self>, int: &mut Interpreter) {
+        let value = int.pop_value();
+        let value = match value {
+            Value::Bool(b) => b,
+            _ => panic!("If condition value must be a bool."),
+        };
+
+        let if_part = self.ifs.get(self.index).unwrap();
+        if value {
+            int.push_eval(if_part.body.clone());
+        } else if self.index < self.ifs.len() - 1 {
+            Rc::get_mut(&mut self)
+                .expect("Implementation error - can't get IfInner as mut, it is aliased")
+                .index += 1;
+            let cond_expr = self.ifs.get(self.index).unwrap().cond.clone().into_eval();
+            int.push_eval(self);
+            int.push_eval(cond_expr);
+        } else if let Some(else_body) = self.else_body.as_ref() {
+            int.push_eval(else_body.clone())
+        } else {
+            int.push_value(Value::Null);
+        }
+    }
+    fn short_name(&self) -> &str {
+        "IfInner"
+    }
+}
+
+impl Eval for ast::IfExpression {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_eval(Rc::new(IfInner {
+            index: 0,
+            ifs: self.ifs.clone(),
+            else_body: self.else_body.clone(),
+        }));
+
+        int.push_eval(self.ifs.get(0).unwrap().cond.clone().into_eval())
+    }
     fn short_name(&self) -> &str {
         "If"
     }
