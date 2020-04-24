@@ -1,3 +1,5 @@
+use new_interpreter::Interpreter;
+
 #[macro_use]
 extern crate lalrpop_util;
 
@@ -5,20 +7,20 @@ extern crate lalrpop_util;
 mod tests;
 
 mod ast;
-mod interpreter;
+// mod interpreter;
 mod kal_ref;
+mod new_interpreter;
 
 lalrpop_mod!(#[allow(clippy::all)] pub kal_grammar);
 
 fn main() {
     let ast = kal_grammar::BlockInnerParser::new()
-        .parse(include_str!("../examples/boolean_precedence.kal"))
+        .parse(include_str!("../examples/handle_implicit.kal"))
         .unwrap_or_else(|err| panic!("Failed to parse file, {:?}", err));
 
-    // Never deallocate the AST, because it has to live longer than garbage collected objects.
-    let ast = Box::leak(Box::new(ast));
+    let mut runtime = Interpreter::new();
 
-    let result = interpreter::eval(ast);
+    let result = runtime.eval(ast);
 
     println!("{:#?}", result);
 }

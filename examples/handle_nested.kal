@@ -1,0 +1,12 @@
+let request = symbol;
+let ask = fn() {
+    send request null
+};
+let middle = fn() {
+    handle ask() { }
+};
+handle middle() {
+    request _ {
+        resume 55
+    }
+}

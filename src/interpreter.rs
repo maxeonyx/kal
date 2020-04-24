@@ -9,6 +9,7 @@ use crate::ast::{
 
 use crate::kal_ref::KalRef;
 
+// solution: functions move or ignore mutable bindings.
 pub mod types {
     use crate::{ast::Function, kal_ref::KalRef};
     use std::collections::HashMap;
@@ -541,7 +542,6 @@ fn eval_literal(
         Literal::Object(obj) => literal_object(ctx, sym_gen, obj),
         Literal::Symbol => sym_gen.gen(),
         Literal::List(list) => literal_list(ctx, sym_gen, list),
-        _ => unimplemented!("Literal type {:?}.", literal),
     }
 }
 

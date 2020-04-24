@@ -1,0 +1,12 @@
+let yield = symbol;
+let gen = fn() {
+    send yield 3
+};
+let val = handle gen() {
+    yield num {
+        resume num * num;
+        let n = 1 + 4;
+        n
+    }
+};
+val

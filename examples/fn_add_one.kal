@@ -1,2 +1,3 @@
+let dumy = 1;
 let add_one = fn (x) x + 1;
 add_one(5)

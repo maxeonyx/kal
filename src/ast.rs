@@ -1,62 +1,76 @@
-use std::collections::HashMap;
+use super::new_interpreter::eval::Eval;
+use crate::new_interpreter::eval::IntoEval;
+use std::{fmt::Debug, rc::Rc};
+
+pub trait Statement: Eval + IntoEval<dyn Eval> {}
+
+impl<T: Expression> Statement for T {}
+
+pub trait IntoStatement<T: ?Sized> {
+    fn into_statement(self: Rc<Self>) -> Rc<T>;
+}
+impl<'a, T: Statement + 'a> IntoStatement<dyn Statement + 'a> for T {
+    fn into_statement(self: Rc<Self>) -> Rc<dyn Statement + 'a> {
+        self
+    }
+}
+
+pub trait Expression: Statement + IntoStatement<dyn Statement> {}
+
+// Identifiers
+impl Expression for String {}
 
 #[derive(Debug)]
-pub enum Statement {
-    Let(LetStatement),
-    Assignment(Assignment),
-}
+pub struct Null;
+impl Expression for Null {}
+
+#[derive(Debug)]
+pub struct Bool(pub bool);
+impl Expression for Bool {}
+
+#[derive(Debug)]
+pub struct Symbol;
+impl Expression for Symbol {}
+
+#[derive(Debug)]
+pub struct Int(pub i64);
+impl Expression for Int {}
 
 #[derive(Debug)]
 pub struct LetStatement {
-    pub mutable: bool,
-    pub variable: Ident,
-    pub expr: Box<Expression>,
+    pub ident: String,
+    pub expr: Rc<dyn Expression>,
 }
+impl Statement for LetStatement {}
 
 #[derive(Debug)]
 pub struct Assignment {
-    pub location: Box<Location>,
-    pub expr: Box<Expression>,
+    pub location: String,
+    pub expr: Rc<dyn Expression>,
 }
-
-#[derive(Debug)]
-pub enum Location {
-    Ident(Ident),
-}
-
-#[derive(Debug)]
-pub enum Expression {
-    Literal(Literal),
-    Ident(Ident),
-    FunctionInvocation(FunctionInvocation),
-    If(IfExpression),
-    Numeric(NumericExpression),
-    Comparison(ComparisonExpression),
-    Dot(DotExpression),
-    Index(IndexExpression),
-    Boolean(BooleanExpression),
-    Not(NotExpression),
-    Negative(NegativeExpression),
-}
+impl Statement for Assignment {}
 
 #[derive(Debug)]
 pub struct NegativeExpression {
-    pub expr: Box<Expression>,
+    pub expr: Rc<dyn Expression>,
 }
+impl Expression for NegativeExpression {}
 
 #[derive(Debug)]
 pub struct NotExpression {
-    pub expr: Box<Expression>,
+    pub expr: Rc<dyn Expression>,
 }
+impl Expression for NotExpression {}
 
 #[derive(Debug)]
 pub struct BooleanExpression {
-    pub left: Box<Expression>,
-    pub right: Box<Expression>,
+    pub left: Rc<dyn Expression>,
+    pub right: Rc<dyn Expression>,
     pub operator: BooleanOperator,
 }
+impl Expression for BooleanExpression {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum BooleanOperator {
     And,
     Or,
@@ -65,15 +79,25 @@ pub enum BooleanOperator {
 
 #[derive(Debug)]
 pub struct DotExpression {
-    pub base: Box<Expression>,
-    pub prop: Ident,
+    pub base: Rc<dyn Expression>,
+    pub prop: String,
 }
+impl Expression for DotExpression {}
 
 #[derive(Debug)]
 pub struct IndexExpression {
-    pub base: Box<Expression>,
-    pub index: Box<Expression>,
+    pub base: Rc<dyn Expression>,
+    pub index: Rc<dyn Expression>,
 }
+impl Expression for IndexExpression {}
+
+#[derive(Debug)]
+pub struct ComparisonExpression {
+    pub left: Rc<dyn Expression>,
+    pub right: Rc<dyn Expression>,
+    pub operator: ComparisonOperator,
+}
+impl Expression for ComparisonExpression {}
 
 #[derive(Debug)]
 pub enum ComparisonOperator {
@@ -86,13 +110,14 @@ pub enum ComparisonOperator {
 }
 
 #[derive(Debug)]
-pub struct ComparisonExpression {
-    pub left: Box<Expression>,
-    pub right: Box<Expression>,
-    pub operator: ComparisonOperator,
+pub struct NumericExpression {
+    pub left: Rc<dyn Expression>,
+    pub right: Rc<dyn Expression>,
+    pub operator: NumericOperator,
 }
+impl Expression for NumericExpression {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum NumericOperator {
     Add,
     Multiply,
@@ -101,71 +126,80 @@ pub enum NumericOperator {
 }
 
 #[derive(Debug)]
-pub struct NumericExpression {
-    pub left: Box<Expression>,
-    pub right: Box<Expression>,
-    pub operator: NumericOperator,
-}
-
-#[derive(Debug)]
 pub struct IfExpression {
+    pub else_body: Option<Rc<Block>>,
     pub ifs: Vec<IfPart>,
-    pub else_body: Option<Block>,
 }
+impl Expression for IfExpression {}
 
 #[derive(Debug)]
 pub struct IfPart {
-    pub cond: Expression,
-    pub body: Block,
-}
-
-#[derive(Debug)]
-pub enum Literal {
-    Null,
-    Bool(bool),
-    Symbol,
-    Int(i64),
-    String(String),
-    Object(ObjectLiteral),
-    List(ListLiteral),
-    Function(Function),
+    pub cond: Rc<dyn Expression>,
+    pub body: Rc<Block>,
 }
 
 #[derive(Debug)]
 pub struct Function {
-    pub parameters: Vec<Ident>,
-    pub body: Block,
+    pub body: Rc<Block>,
+    pub parameters: Vec<String>,
 }
+impl Expression for Function {}
 
 #[derive(Debug)]
 pub struct Block {
-    pub statements: Vec<Statement>,
-    pub expression: Option<Box<Expression>>,
+    pub expression: Option<Rc<dyn Expression>>,
+    pub statements: Vec<Rc<dyn Statement>>,
 }
+impl Expression for Block {}
 
 #[derive(Debug)]
 pub struct FunctionInvocation {
-    pub closure_expression: Box<Expression>,
-    pub parameters: Vec<Expression>,
+    pub base: Rc<dyn Expression>,
+    pub parameters: Vec<Rc<dyn Expression>>,
+}
+impl Expression for FunctionInvocation {}
+
+#[derive(Debug)]
+pub struct Object {
+    pub pairs: Vec<(String, Rc<dyn Expression>)>,
+}
+impl Expression for Object {}
+
+#[derive(Debug)]
+pub struct List {
+    pub elements: Vec<ListElem>,
+}
+impl Expression for List {}
+
+#[derive(Debug)]
+pub enum ListElem {
+    Spread(Rc<dyn Expression>),
+    Elem(Rc<dyn Expression>),
 }
 
 #[derive(Debug)]
-pub struct ObjectLiteral {
-    pub map: HashMap<Ident, Expression>,
+pub struct Handle {
+    pub expr: Rc<dyn Expression>,
+    pub match_arms: Vec<HandleMatch>,
+}
+impl Expression for Handle {}
+
+#[derive(Debug, Clone)]
+pub struct HandleMatch {
+    pub symbol: String,
+    pub param: String,
+    pub block: Rc<Block>,
 }
 
 #[derive(Debug)]
-pub struct ListLiteral {
-    pub elements: Vec<ListLiteralElem>,
+pub struct SendExpr {
+    pub symbol: String,
+    pub expr: Rc<dyn Expression>,
 }
+impl Expression for SendExpr {}
 
 #[derive(Debug)]
-pub enum ListLiteralElem {
-    Spread(Expression),
-    Elem(Expression),
+pub struct Resume {
+    pub expr: Rc<dyn Expression>,
 }
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct Ident {
-    pub name: String,
-}
+impl Expression for Resume {}
