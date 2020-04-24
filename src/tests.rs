@@ -151,6 +151,8 @@ test! { handle_no_resume, Value::Int(3) }
 
 test! { handle_nested, Value::Int(55) }
 
+test! { handle_nested_resume, Value::Int(20) }
+
 test! { handle_reassign, Value::Int(146) }
 
 #[test]
