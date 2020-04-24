@@ -4,6 +4,6 @@ let gen = fn() {
     9
 };
 let val = handle gen() {
-    yield num { resume; }
+    yield num { resume null; }
 };
 val

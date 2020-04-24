@@ -65,6 +65,7 @@ Statement: Rc<dyn Statement> = {
 Expression: Rc<dyn Expression> = {
     <f:Function> => f,
     <s:SendExpr> => s,
+    <r:Resume> => r,
     <h:Handle> => h,
     BooleanExpression,
 }
@@ -308,10 +309,10 @@ Int: i64 = {
 
 
 Handle: Rc<Handle> = {
-    "handle" <expr:FunctionInvocation> "{" <matches:Comma<HandleMatch>> "}" =>
+    "handle" <expr:FunctionInvocation> "{" <match_arms:Comma<HandleMatch>> "}" =>
         Rc::new(Handle {
             expr,
-            matches,
+            match_arms,
         }),
 }
 
@@ -328,6 +329,13 @@ SendExpr: Rc<SendExpr> = {
     "send" <symbol:Ident> <expr:Expression> =>
         Rc::new(SendExpr {
             symbol,
+            expr,
+        }),
+}
+
+Resume: Rc<Resume> = {
+    "resume" <expr:Expression> =>
+        Rc::new(Resume {
             expr,
         }),
 }

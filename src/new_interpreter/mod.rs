@@ -28,9 +28,10 @@ pub enum Value {
     Object(KalRef<HashMap<Key, Value>>),
     Closure(KalRef<Closure>),
     Symbol(u64),
+    Effect(KalRef<Effect>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Closure {
     pub code: Rc<Function>,
     pub scope: KalRef<Scope>,
@@ -44,6 +45,19 @@ impl Closure {
 
 impl PartialEq for Closure {
     fn eq(&self, _other: &Closure) -> bool {
+        false
+    }
+}
+
+#[derive(Debug)]
+pub struct Effect {
+    symbol: u64,
+    value: Value,
+    ctx: FunctionContext,
+}
+
+impl PartialEq for Effect {
+    fn eq(&self, _other: &Effect) -> bool {
         false
     }
 }
@@ -87,27 +101,45 @@ impl Scope {
 }
 
 #[derive(Debug)]
-pub struct Context {
-    scope_chain: KalRef<Scope>,
+pub enum SubContextType {
+    Plain,
+    Handle(Box<FunctionContext>),
+}
+
+#[derive(Debug)]
+pub struct SubContext {
+    typ: SubContextType,
     eval_stack: Vec<Rc<dyn Eval>>,
     value_stack: Vec<Value>,
 }
 
-impl Context {
-    fn new(scope_chain: KalRef<Scope>) -> Self {
-        Self {
-            scope_chain,
-            eval_stack: vec![],
-            value_stack: vec![],
+impl SubContext {
+    fn new(typ: SubContextType) -> Self {
+        SubContext {
+            typ,
+            eval_stack: Vec::new(),
+            value_stack: Vec::new(),
         }
     }
 }
 
+#[derive(Debug)]
+pub struct FunctionContext {
+    scope: KalRef<Scope>,
+    sub_context_stack: Vec<SubContext>,
+}
+
+impl FunctionContext {
+    fn new(scope: KalRef<Scope>) -> Self {
+        Self {
+            scope,
+            sub_context_stack: vec![SubContext::new(SubContextType::Plain)],
+        }
+    }
+}
 pub struct Interpreter {
     sym_gen: SymbolGenerator,
-    ctx_stack: Vec<Context>,
-    // resume_stack: Vec<Context>,
-    // handle_stack: Vec<Context>,
+    fn_context_stack: Vec<FunctionContext>,
 }
 
 impl Interpreter {
@@ -116,37 +148,44 @@ impl Interpreter {
         let scope = KalRef::new(Scope::new());
         Interpreter {
             sym_gen,
-            ctx_stack: vec![Context::new(scope)],
+            fn_context_stack: vec![FunctionContext::new(scope)],
         }
     }
 
     #[allow(unused)]
-    fn print_eval_stack(&self) {
+    fn print_eval_stack(&mut self) {
         println!("===== eval stack =====");
         print!("[ ");
-        for eval in self.ctx().eval_stack.iter() {
+        for eval in self.current_sub_context().eval_stack.iter() {
             print!("{} ", eval.short_name());
         }
         println!("]");
     }
 
     #[allow(unused)]
-    fn print_value_stack(&self) {
+    fn print_value_stack(&mut self) {
         println!("===== value stack =====");
-        println!("{:#?}", self.ctx().value_stack);
+        println!(
+            "{:#?}",
+            self.current_fn_context()
+                .sub_context_stack
+                .last()
+                .unwrap()
+                .value_stack
+        );
     }
 
     #[allow(unused)]
     fn print_ctx_stack(&self) {
         println!("===== ctx stack =====");
-        println!("{:#?}", self.ctx_stack);
+        println!("{:#?}", self.fn_context_stack);
     }
 
     #[allow(unused)]
-    fn print_scope_chain(&self) {
+    fn print_scope_chain(&mut self) {
         println!("===== scope chain =====");
         print!("[ ");
-        let mut scope = &self.ctx().scope_chain;
+        let mut scope = &self.current_fn_context().scope;
         loop {
             print!("{{ ");
             for k in scope.bindings.keys() {
@@ -163,77 +202,114 @@ impl Interpreter {
         println!("]");
     }
 
+    #[allow(clippy::let_and_return)]
     pub fn eval(&mut self, statement: Rc<dyn Eval>) -> Value {
-        self.ctx_mut().eval_stack.push(statement);
-        loop {
-            while !self.ctx().eval_stack.is_empty() {
-                let statement = self.ctx_mut().eval_stack.pop().unwrap();
+        self.push_eval(statement);
+        let value_left_over = loop {
+            // function contexts
+            let value_left_over = loop {
+                // sub contexts (loop, handle)
+                let value_left_over = loop {
+                    let statement = self
+                        .current_eval_stack()
+                        .pop()
+                        .expect("Implementation error - no values to pop from the eval stack.");
 
-                let result = statement.eval(self);
+                    statement.eval(self);
 
-                if let Some(val) = result {
-                    self.ctx_mut().value_stack.push(val);
+                    if self.current_eval_stack().is_empty() {
+                        break self.pop_value();
+                    }
+                };
+
+                self.pop_sub_context();
+                if self.current_fn_context().sub_context_stack.is_empty() {
+                    break value_left_over;
                 }
-            }
 
-            self.print_value_stack();
-            let value_left_over = self.pop_value();
-            self.pop_context();
-            if !self.ctx_stack.is_empty() {
-                self.ctx_mut().value_stack.push(value_left_over);
-            } else {
-                return value_left_over;
+                self.push_value(value_left_over);
+            };
+            self.pop_fn_context();
+            if self.fn_context_stack.is_empty() {
+                break value_left_over;
             }
-        }
-    }
-
-    fn ctx(&self) -> &Context {
-        self.ctx_stack.last().unwrap()
+            self.push_value(value_left_over);
+        };
+        value_left_over
     }
 
     fn branch_scope(&mut self) -> KalRef<Scope> {
-        let scope1 = Scope::extend(self.ctx().scope_chain.clone());
-        let scope2 = Scope::extend(self.ctx().scope_chain.clone());
-        self.ctx_mut().scope_chain = scope1;
+        let scope1 = Scope::extend(self.current_fn_context().scope.clone());
+        let scope2 = Scope::extend(self.current_fn_context().scope.clone());
+        self.current_fn_context().scope = scope1;
         scope2
     }
 
-    fn ctx_mut(&mut self) -> &mut Context {
-        self.ctx_stack
+    fn current_fn_context(&mut self) -> &mut FunctionContext {
+        self.fn_context_stack
             .last_mut()
-            .expect("Not enough values in the context stack.")
+            .expect("Implementation error - no function contexts.")
     }
 
-    fn push_context(&mut self, ctx: Context) {
-        self.ctx_stack.push(ctx);
+    fn push_fn_context(&mut self, ctx: FunctionContext) {
+        self.fn_context_stack.push(ctx);
     }
 
-    fn pop_context(&mut self) {
-        self.ctx_stack
+    fn pop_fn_context(&mut self) -> FunctionContext {
+        self.fn_context_stack
             .pop()
-            .expect("Implementation error - no more contexts to pop.");
+            .expect("Implementation error - no more function contexts to pop.")
+    }
+
+    fn current_sub_context(&mut self) -> &mut SubContext {
+        self.current_fn_context()
+            .sub_context_stack
+            .last_mut()
+            .expect("Implementation error - no sub contexts.")
+    }
+
+    fn push_sub_context(&mut self, ctx: SubContext) {
+        self.current_fn_context().sub_context_stack.push(ctx);
+    }
+
+    fn pop_sub_context(&mut self) -> SubContext {
+        self.current_fn_context()
+            .sub_context_stack
+            .pop()
+            .expect("Implementation error - no more sub contexts to pop.")
+    }
+
+    fn current_eval_stack(&mut self) -> &mut Vec<Rc<dyn Eval>> {
+        &mut self.current_sub_context().eval_stack
+    }
+
+    fn current_value_stack(&mut self) -> &mut Vec<Value> {
+        &mut self.current_sub_context().value_stack
     }
 
     fn push_eval(&mut self, eval: Rc<dyn Eval>) {
-        self.ctx_mut().eval_stack.push(eval)
+        self.current_eval_stack().push(eval)
+    }
+
+    fn push_value(&mut self, value: Value) {
+        self.current_value_stack().push(value)
     }
 
     fn pop_value(&mut self) -> Value {
-        self.ctx_mut()
-            .value_stack
+        self.current_value_stack()
             .pop()
             .expect("Implementation error - not enough values on value_stack.")
     }
 
     fn push_scope(&mut self) {
-        let ctx = self.ctx_mut();
-        ctx.scope_chain = Scope::extend(ctx.scope_chain.clone())
+        let ctx = self.current_fn_context();
+        ctx.scope = Scope::extend(ctx.scope.clone())
     }
 
     fn pop_scope(&mut self) {
-        let ctx = self.ctx_mut();
-        ctx.scope_chain = ctx
-            .scope_chain
+        let ctx = self.current_fn_context();
+        ctx.scope = ctx
+            .scope
             .parent
             .as_ref()
             .expect("Implementation error - no more scopes to pop.")
@@ -242,9 +318,8 @@ impl Interpreter {
 
     fn create_binding(&mut self, name: String, value: Value) {
         // create new scope if the current one has been borrowed? (by a closure)
-
-        self.ctx_mut()
-            .scope_chain
+        self.current_fn_context()
+            .scope
             .borrow_mut()
             .unwrap_or_else(|| {
                 panic!(
@@ -254,5 +329,11 @@ impl Interpreter {
             })
             .bindings
             .insert(name, value);
+    }
+}
+
+impl Default for Interpreter {
+    fn default() -> Self {
+        Interpreter::new()
     }
 }

@@ -1,6 +1,8 @@
 use std::{
     fmt::{Debug, Error, Formatter},
+    mem,
     ops::Deref,
+    ptr,
 };
 
 // This type replaces Rc<RefCell<T>> for Kal reference types (Lists, Objects, Strings, Closures)
@@ -52,6 +54,17 @@ impl<T> KalRef<T> {
             None
         } else {
             Some(unsafe { &mut (*self.ptr).value })
+        }
+    }
+
+    pub fn try_into_inner(self) -> Result<T, Self> {
+        if self.ref_count() > 1 {
+            Err(self)
+        } else {
+            let inner = unsafe { ptr::read(self.ptr) };
+            let value = inner.value;
+            mem::forget(self);
+            Ok(value)
         }
     }
 }
@@ -117,7 +130,7 @@ impl<T> Drop for KalRef<T> {
     fn drop(&mut self) {
         self.dec_ref_count();
         if self.ref_count() == 0 {
-            unsafe { std::ptr::drop_in_place(self.ptr) }
+            unsafe { ptr::drop_in_place(self.ptr) }
         }
     }
 }

@@ -28,7 +28,8 @@ macro_rules! test {
         #[test]
         pub fn $test_name() {
             let val = eval_file(&format!("examples/{}.kal", stringify!($test_name)));
-            assert!(val == $expected_val);
+            let expected = $expected_val;
+            assert!(val == expected, format!("Assertion failed: got {:?}, expected {:?}.", val, expected));
         }
     };
 }
@@ -141,4 +142,10 @@ test! { mut_multi_let, Value::Int(999) }
 
 test! { mut_increment, Value::Int(61) }
 
-test! { handle, Value::Int(9) }
+test! { handle_resume, Value::Int(9) }
+
+test! { handle_no_resume, Value::Int(3) }
+
+test! { handle_nested, Value::Int(55) }
+
+test! { handle_reassign, Value::Int(146) }

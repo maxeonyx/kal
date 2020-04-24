@@ -1,23 +1,23 @@
 use super::{
     eval::{Eval, UnimplementedEval},
-    Closure, Context, Interpreter, Scope, Value,
+    Closure, Effect, FunctionContext, Interpreter, Scope, SubContext, SubContextType, Value,
 };
 use crate::{ast, kal_ref::KalRef};
 use std::{fmt, rc::Rc};
 
-struct Custom<T: Fn(&mut Interpreter) -> Option<Value>> {
+struct Custom<T: Fn(&mut Interpreter)> {
     name: &'static str,
     function: T,
 }
-impl<T: Fn(&mut Interpreter) -> Option<Value>> fmt::Debug for Custom<T> {
+impl<T: Fn(&mut Interpreter)> fmt::Debug for Custom<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Custom")
             .field("name", &self.name)
             .finish()
     }
 }
-impl<T: Fn(&mut Interpreter) -> Option<Value>> Eval for Custom<T> {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) -> Option<Value> {
+impl<T: Fn(&mut Interpreter)> Eval for Custom<T> {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
         (self.function)(int)
     }
     fn short_name(&self) -> &str {
@@ -33,16 +33,6 @@ impl UnimplementedEval for ast::DotExpression {
 impl UnimplementedEval for ast::IndexExpression {
     fn short_name(&self) -> &str {
         "Index"
-    }
-}
-impl UnimplementedEval for ast::SendExpr {
-    fn short_name(&self) -> &str {
-        "Send"
-    }
-}
-impl UnimplementedEval for ast::Handle {
-    fn short_name(&self) -> &str {
-        "Handle"
     }
 }
 impl UnimplementedEval for ast::ComparisonExpression {
@@ -77,8 +67,8 @@ impl UnimplementedEval for ast::NotExpression {
 }
 
 impl Eval for ast::Null {
-    fn eval(self: Rc<Self>, _: &mut Interpreter) -> Option<Value> {
-        Some(Value::Null)
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_value(Value::Null)
     }
     fn short_name(&self) -> &str {
         "LiteralNull"
@@ -86,8 +76,9 @@ impl Eval for ast::Null {
 }
 
 impl Eval for ast::Symbol {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) -> Option<Value> {
-        Some(int.sym_gen.gen())
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let symbol = int.sym_gen.gen();
+        int.push_value(symbol);
     }
     fn short_name(&self) -> &str {
         "Symbol"
@@ -95,8 +86,8 @@ impl Eval for ast::Symbol {
 }
 
 impl Eval for ast::Bool {
-    fn eval(self: Rc<Self>, _: &mut Interpreter) -> Option<Value> {
-        Some(Value::Bool(self.0))
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_value(Value::Bool(self.0))
     }
     fn short_name(&self) -> &str {
         "Bool"
@@ -104,8 +95,8 @@ impl Eval for ast::Bool {
 }
 
 impl Eval for ast::Int {
-    fn eval(self: Rc<Self>, _: &mut Interpreter) -> Option<Value> {
-        Some(Value::Int(self.0))
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_value(Value::Int(self.0))
     }
     fn short_name(&self) -> &str {
         "Int"
@@ -113,26 +104,41 @@ impl Eval for ast::Int {
 }
 
 impl Eval for ast::Function {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) -> Option<Value> {
-        Some(Value::Closure(KalRef::new(Closure::new(
-            self,
-            int.branch_scope(),
-        ))))
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let scope = int.branch_scope();
+        let value = Value::Closure(KalRef::new(Closure::new(self, scope)));
+        int.push_value(value);
     }
     fn short_name(&self) -> &str {
         "Function"
     }
 }
 
+#[derive(Debug)]
+pub struct PopScope;
+impl Eval for PopScope {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.pop_scope();
+    }
+    fn short_name(&self) -> &str {
+        "PopScope"
+    }
+}
+
+#[derive(Debug)]
+pub struct PushScope;
+impl Eval for PushScope {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_scope();
+    }
+    fn short_name(&self) -> &str {
+        "PushScope"
+    }
+}
+
 impl Eval for ast::Block {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) -> Option<Value> {
-        int.push_eval(Rc::new(Custom {
-            name: "PopScope",
-            function: |int| {
-                int.pop_scope();
-                None
-            },
-        }));
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_eval(Rc::new(PopScope));
 
         if let Some(expr) = self.expression.as_ref() {
             int.push_eval(expr.clone().into_eval());
@@ -143,33 +149,32 @@ impl Eval for ast::Block {
         for statement in self.statements.iter().rev() {
             int.push_eval(statement.clone().into_eval());
         }
-        int.push_eval(Rc::new(Custom {
-            name: "PushScope",
-            function: |int| {
-                int.push_scope();
-                None
-            },
-        }));
-        None
+        int.push_eval(Rc::new(PushScope));
     }
     fn short_name(&self) -> &str {
         "Block"
     }
 }
 
+#[derive(Debug)]
+pub struct LetInner {
+    name: String,
+}
+impl Eval for LetInner {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let val = int.pop_value();
+        int.create_binding(self.name.clone(), val);
+    }
+    fn short_name(&self) -> &str {
+        "LetInner"
+    }
+}
+
 impl Eval for ast::LetStatement {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) -> Option<Value> {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let name = self.ident.clone();
-        int.push_eval(Rc::new(Custom {
-            name: "LetInner",
-            function: move |int| {
-                let val = int.pop_value();
-                int.create_binding(name.clone(), val);
-                None
-            },
-        }));
+        int.push_eval(Rc::new(LetInner { name }));
         int.push_eval(self.expr.clone().into_eval());
-        None
     }
     fn short_name(&self) -> &str {
         "Let"
@@ -177,7 +182,7 @@ impl Eval for ast::LetStatement {
 }
 
 impl Eval for ast::NumericExpression {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) -> Option<Value> {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let operator = self.operator;
         int.push_eval(Rc::new(Custom {
             name: "NumericInner",
@@ -200,12 +205,11 @@ impl Eval for ast::NumericExpression {
                     Subtract => Value::Int(left - right),
                     Divide => Value::Int(left / right),
                 };
-                Some(val)
+                int.push_value(val)
             },
         }));
         int.push_eval(self.left.clone().into_eval());
         int.push_eval(self.right.clone().into_eval());
-        None
     }
     fn short_name(&self) -> &str {
         use ast::NumericOperator::*;
@@ -219,7 +223,7 @@ impl Eval for ast::NumericExpression {
 }
 
 impl Eval for ast::BooleanExpression {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) -> Option<Value> {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let operator = self.operator;
         int.push_eval(Rc::new(Custom {
             name: "BooleanInner",
@@ -241,14 +245,13 @@ impl Eval for ast::BooleanExpression {
                     Or => Value::Bool(left || right),
                     Xor => Value::Bool((!left && right) || (!right && left)),
                 };
-                Some(val)
+                int.push_value(val)
             },
         }));
 
         // no short-circuiting at the moment
         int.push_eval(self.left.clone().into_eval());
         int.push_eval(self.right.clone().into_eval());
-        None
     }
     fn short_name(&self) -> &str {
         "Boolean"
@@ -256,7 +259,7 @@ impl Eval for ast::BooleanExpression {
 }
 
 impl Eval for ast::NegativeExpression {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) -> Option<Value> {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
         int.push_eval(Rc::new(Custom {
             name: "NegativeInner",
             function: move |int| {
@@ -270,11 +273,10 @@ impl Eval for ast::NegativeExpression {
                     panic!("Can't negate i64::min.");
                 }
                 let val = -val;
-                Some(Value::Int(val))
+                int.push_value(Value::Int(val))
             },
         }));
         int.push_eval(self.expr.clone().into_eval());
-        None
     }
     fn short_name(&self) -> &str {
         "Negative"
@@ -282,11 +284,12 @@ impl Eval for ast::NegativeExpression {
 }
 
 impl Eval for String {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) -> Option<Value> {
-        let mut scope = &int.ctx().scope_chain;
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let mut scope = &int.current_fn_context().scope.clone();
         loop {
             if let Some(value) = scope.bindings.get(&*self) {
-                return Some(value.clone());
+                int.push_value(value.clone());
+                return;
             }
 
             if let Some(parent) = &scope.parent {
@@ -303,7 +306,7 @@ impl Eval for String {
 }
 
 impl Eval for ast::FunctionInvocation {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) -> Option<Value> {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let num_params_provided = self.parameters.len();
         int.push_eval(Rc::new(Custom {
             name: "FunctionInvocationInner",
@@ -329,15 +332,13 @@ impl Eval for ast::FunctionInvocation {
                     values.push(int.pop_value());
                 }
 
-                int.push_context(Context::new(scope));
+                int.push_fn_context(FunctionContext::new(scope));
 
                 for (name, value) in param_names.iter().zip(values) {
                     int.create_binding(name.clone(), value);
                 }
 
                 int.push_eval(body);
-
-                None
             },
         }));
 
@@ -346,10 +347,146 @@ impl Eval for ast::FunctionInvocation {
         for expr in self.parameters.iter() {
             int.push_eval(expr.clone().into_eval());
         }
-
-        None
     }
     fn short_name(&self) -> &str {
         "FunctionInvocation"
+    }
+}
+
+impl Eval for ast::Handle {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let match_arms = self.match_arms.clone();
+        int.push_eval(Rc::new(Custom {
+            name: "HandleInner",
+            function: move |int| {
+                let effect = int.pop_value();
+                let effect = match effect {
+                    Value::Effect(e) => e,
+                    // if function returned normally, handle evaluates to that value.
+                    _ => {
+                        int.push_value(effect);
+                        return;
+                    }
+                };
+
+                let mut symbols = Vec::with_capacity(match_arms.len());
+                for _ in 0..match_arms.len() {
+                    let symbol = int.pop_value();
+                    let symbol = match symbol {
+                        Value::Symbol(symbol) => symbol,
+                        _ => panic!("Effect type in match arm must be a symbol."),
+                    };
+                    symbols.push(symbol);
+                }
+
+                let Effect { symbol, value, ctx } = effect.try_into_inner().expect("Couldn't get the context out of an effect. The effect was aliased when it shouldn't have been.");
+
+                int.push_sub_context(SubContext::new(SubContextType::Handle(Box::new(ctx))));
+
+                let match_arm = match_arms
+                    .clone()
+                    .into_iter()
+                    .zip(symbols)
+                    .find(|(_, sym)| *sym == symbol);
+
+                if let Some((ast::HandleMatch { param, block, .. }, _)) = match_arm {
+                    int.push_eval(Rc::new(PopScope));
+                    int.push_eval(block);
+                    int.push_eval(Rc::new(LetInner {
+                        name: param,
+                    }));
+                    // if PushScope added/consumed values, or changed the context, we would have to push an identity function here instead of value directly.
+                    int.push_value(value);
+                    int.push_eval(Rc::new(PushScope));
+                } else {
+                    // if there is no match arm that handles this effect, establish a passthrough.
+                    // this means sending the effect upwards, then resuming with whatever value we get back
+                    int.push_eval(Rc::new(ResumeInner));
+                    int.push_eval(Rc::new(SendInner));
+                    int.push_value(value);
+                    int.push_value(Value::Symbol(symbol));
+                }
+            },
+        }));
+
+        int.push_eval(self.expr.clone().into_eval());
+
+        // eagerly evaluate the symbols
+        for match_arm in &self.match_arms {
+            int.push_eval(Rc::new(match_arm.symbol.clone()));
+        }
+    }
+    fn short_name(&self) -> &str {
+        "Handle"
+    }
+}
+
+#[derive(Debug)]
+pub struct SendInner;
+impl Eval for SendInner {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let symbol = int.pop_value();
+        let symbol = match symbol {
+            Value::Symbol(symbol) => symbol,
+            _ => panic!("Effect type in send must be a symbol."),
+        };
+        let value = int.pop_value();
+
+        let ctx = int.pop_fn_context();
+
+        int.push_value(Value::Effect(KalRef::new(Effect { symbol, value, ctx })))
+    }
+    fn short_name(&self) -> &str {
+        "SendInner"
+    }
+}
+
+impl Eval for ast::SendExpr {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_eval(Rc::new(SendInner));
+
+        int.push_eval(Rc::new(self.symbol.clone()));
+
+        int.push_eval(self.expr.clone().into_eval());
+    }
+    fn short_name(&self) -> &str {
+        "Send"
+    }
+}
+
+#[derive(Debug)]
+pub struct ResumeInner;
+impl Eval for ResumeInner {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let value = int.pop_value();
+
+        // discard current context (either handle match arm or loop iteration) as we do not want to run any more code after the resume.
+        let SubContext { typ, .. } = int.pop_sub_context();
+        match typ {
+            SubContextType::Plain => {
+                panic!("Cannot use \"resume\" except in a loop or effect handler")
+            }
+            SubContextType::Handle(ctx) => {
+                // switch to the context from the handled continuation.
+                int.push_fn_context(*ctx);
+
+                // put value on the value stack (as if it was the result of the "send" that created the continuation)
+                int.push_value(value)
+            }
+        }
+    }
+    fn short_name(&self) -> &str {
+        "ResumeInner"
+    }
+}
+
+impl Eval for ast::Resume {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_eval(Rc::new(ResumeInner));
+
+        int.push_eval(self.expr.clone().into_eval())
+    }
+    fn short_name(&self) -> &str {
+        "Resume"
     }
 }

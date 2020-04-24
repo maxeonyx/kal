@@ -180,11 +180,11 @@ pub enum ListElem {
 #[derive(Debug)]
 pub struct Handle {
     pub expr: Rc<dyn Expression>,
-    pub matches: Vec<HandleMatch>,
+    pub match_arms: Vec<HandleMatch>,
 }
 impl Expression for Handle {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HandleMatch {
     pub symbol: String,
     pub param: String,
@@ -197,3 +197,9 @@ pub struct SendExpr {
     pub expr: Rc<dyn Expression>,
 }
 impl Expression for SendExpr {}
+
+#[derive(Debug)]
+pub struct Resume {
+    pub expr: Rc<dyn Expression>,
+}
+impl Expression for Resume {}
