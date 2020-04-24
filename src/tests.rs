@@ -41,13 +41,11 @@ fn big_file() {
     let size = 4_000_000_i64;
     let let_statements = "let num=num+1;".repeat(size as usize);
     let text = format!("let num = 0; {} num", let_statements);
-    let ast = Box::new(
-        crate::kal_grammar::BlockInnerParser::new()
-            .parse(&text)
-            .expect("Wasn't a valid program."),
-    );
+    let ast = crate::kal_grammar::BlockInnerParser::new()
+        .parse(&text)
+        .unwrap();
     let mut runtime = Interpreter::new();
-    let val = runtime.eval(Rc::new(*ast));
+    let val = runtime.eval(ast);
     assert!(val == Value::Int(size));
 }
 
@@ -83,7 +81,7 @@ test! { comparison_true, Value::Bool(true) }
 
 test! { comparison_false, Value::Bool(false) }
 
-test! { release_mode_only, big_recursive, Value::Int(1133) }
+test! { release_mode_only, big_recursive, Value::Int(1_000_000) }
 
 test! { object_empty, Value::Object(KalRef::new(HashMap::new())) }
 
