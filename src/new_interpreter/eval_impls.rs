@@ -155,7 +155,45 @@ impl UnimplementedEval for ast::Object {
         "Object"
     }
 }
-impl UnimplementedEval for ast::List {
+impl Eval for ast::List {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let self2 = self.clone();
+        int.push_eval(Rc::new(Custom {
+            name: "ListInner",
+            function: move |int| {
+                let mut list = Vec::with_capacity(self2.elements.len());
+                for elem in &self2.elements {
+                    let value = int.pop_value();
+                    match elem {
+                        ast::ListElem::Spread(_) => {
+                            let spread_list = match value {
+                                Value::List(rc_vec) => rc_vec,
+                                _ => panic!(
+                                    "The ... operator in a list literal can only be applied to a list."
+                                ),
+                            };
+                            list.reserve(spread_list.len());
+                            for value in spread_list.iter() {
+                                list.push(value.clone());
+                            }
+                        }
+                        ast::ListElem::Elem(_) => {
+                            list.push(value.clone());
+                        }
+                    }
+                }
+                int.push_value(Value::List(KalRef::new(list)))
+            },
+        }));
+
+        for elem in &self.elements {
+            let expr = match elem {
+                ast::ListElem::Spread(expr) => expr,
+                ast::ListElem::Elem(expr) => expr,
+            };
+            int.push_eval(expr.clone().into_eval());
+        }
+    }
     fn short_name(&self) -> &str {
         "List"
     }
