@@ -194,7 +194,37 @@ impl Eval for ast::IfExpression {
         "If"
     }
 }
-impl UnimplementedEval for ast::IndexExpression {
+impl Eval for ast::IndexExpression {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_eval(Rc::new(Custom {
+            name: "IndexInner",
+            function: |int| {
+                let base = int.pop_value();
+                let index = int.pop_value();
+                let base = match base {
+                    Value::List(list) => list,
+                    _ => panic!("Can only apply the [] operator to lists."),
+                };
+                let index = match index {
+                    Value::Int(i) => i,
+                    _ => panic!("Can only use integer values in the [] operator."),
+                };
+                let size = base.len();
+                let index = if index < 0 {
+                    size - ((-index) as usize)
+                } else {
+                    index as usize
+                };
+
+                let value = base.get(index).expect("Index out of bounds of list.");
+
+                int.push_value(value.clone());
+            },
+        }));
+
+        int.push_eval(self.base.clone().into_eval());
+        int.push_eval(self.index.clone().into_eval());
+    }
     fn short_name(&self) -> &str {
         "Index"
     }

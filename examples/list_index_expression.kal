@@ -1,0 +1,2 @@
+let make_list = fn() [28, 30, 32];
+make_list()[2]

@@ -121,6 +121,8 @@ test! { list, Value::List(KalRef::new(vec![Value::Int(1), Value::Int(2), Value::
 
 test! { list_index, Value::Int(29) }
 
+test! { list_index_expression, Value::Int(32) }
+
 test! { list_negative_index, Value::Int(53) }
 
 test! { list_spread, Value::List(KalRef::new(vec![Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4), Value::Int(5), Value::Int(6)])) }
