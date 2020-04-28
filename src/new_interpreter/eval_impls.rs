@@ -1,9 +1,9 @@
 use super::{
     eval::{Eval, UnimplementedEval},
-    Closure, Effect, FunctionContext, Interpreter, Scope, SubContext, SubContextType, Value,
+    Closure, Effect, FunctionContext, Interpreter, Key, Scope, SubContext, SubContextType, Value,
 };
 use crate::{ast, kal_ref::KalRef};
-use std::{fmt, rc::Rc};
+use std::{collections::HashMap, fmt, rc::Rc};
 
 struct Custom<T: Fn(&mut Interpreter)> {
     name: &'static str,
@@ -30,9 +30,31 @@ impl UnimplementedEval for ast::DotExpression {
         "Dot"
     }
 }
-impl UnimplementedEval for ast::IndexExpression {
+impl Eval for ast::Object {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let self2 = self.clone();
+
+        int.push_eval(Rc::new(Custom {
+            name: "ObjectInner",
+            function: move |int| {
+                let mut map = HashMap::new();
+
+                for pair in self2.pairs.iter() {
+                    let value = int.pop_value();
+
+                    map.insert(Key::Str(pair.0.clone()), value);
+                }
+
+                int.push_value(Value::Object(KalRef::new(map)));
+            },
+        }));
+
+        for pair in self.pairs.iter() {
+            int.push_eval(pair.1.clone().into_eval());
+        }
+    }
     fn short_name(&self) -> &str {
-        "Index"
+        "Object"
     }
 }
 impl Eval for ast::ComparisonExpression {
@@ -150,9 +172,9 @@ impl Eval for ast::IfExpression {
         "If"
     }
 }
-impl UnimplementedEval for ast::Object {
+impl UnimplementedEval for ast::IndexExpression {
     fn short_name(&self) -> &str {
-        "Object"
+        "Index"
     }
 }
 impl Eval for ast::List {
