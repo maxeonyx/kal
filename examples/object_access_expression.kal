@@ -1,0 +1,2 @@
+let make_object = fn() { cat: 251 };
+make_object().cat

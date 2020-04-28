@@ -95,6 +95,8 @@ test! { object_simple,
 
 test! { object_access, Value::Int(2) }
 
+test! { object_access_expression, Value::Int(251) }
+
 test! { object_nested, Value::Int(22) }
 
 test! { boolean_and, Value::Bool(false) }
