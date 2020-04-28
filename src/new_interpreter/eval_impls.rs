@@ -25,7 +25,29 @@ impl<T: Fn(&mut Interpreter)> Eval for Custom<T> {
     }
 }
 
-impl UnimplementedEval for ast::DotExpression {
+impl Eval for ast::DotExpression {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let self2 = self.clone();
+
+        int.push_eval(Rc::new(Custom {
+            name: "DotInner",
+            function: move |int| {
+                let base = int.pop_value();
+                let base = match base {
+                    Value::Object(obj) => obj,
+                    _ => panic!("Can only use the . operator on an object."),
+                };
+
+                let value = base
+                    .get(&Key::Str(self2.prop.clone()))
+                    .expect("Failed using the . operator. Key wasn't present.");
+
+                int.push_value(value.clone());
+            },
+        }));
+
+        int.push_eval(self.base.clone().into_eval());
+    }
     fn short_name(&self) -> &str {
         "Dot"
     }
