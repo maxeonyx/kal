@@ -1,0 +1,4 @@
+let obj = {
+    num_dogs: fn() 491
+};
+obj.num_dogs()

@@ -97,6 +97,8 @@ test! { object_access, Value::Int(2) }
 
 test! { object_access_expression, Value::Int(251) }
 
+test! { object_access_fn, Value::Int(491) }
+
 test! { object_nested, Value::Int(22) }
 
 test! { boolean_and, Value::Bool(false) }
