@@ -27,6 +27,7 @@ pub enum Value {
     Closure(Rc<Closure>),
     Symbol(u64),
     Effect(Rc<Effect>),
+    Location(Rc<Value>),
 }
 
 #[derive(Debug)]
@@ -328,16 +329,44 @@ impl Interpreter {
     }
 
     fn create_binding(&mut self, name: String, value: Value) {
-        // create new scope if the current one has been borrowed? (by a closure)
+        // This should always succeed because the current scope will never be aliased since we branch it
+        // when creating closures.
         Rc::get_mut(&mut self.current_fn_context().scope)
             .unwrap_or_else(|| {
                 panic!(
-                    "Implementation error - borrow_mut failed create_binding for {:?}.",
+                    "Implementation error - get_mut failed in create_binding for {:?}.",
                     &name,
                 )
             })
             .bindings
             .insert(name, value);
+    }
+
+    fn resolve_binding_mut(&mut self, name: &str) -> Option<&mut Value> {
+        // This will always succeed the first time since the current scope is never aliased.
+        let mut scope = Rc::get_mut(&mut self.current_fn_context().scope).unwrap_or_else(|| {
+            panic!(
+                "Implementation error - get_mut failed in resolve_binding_mut for {:?}.",
+                &name,
+            )
+        });
+        loop {
+            if scope.bindings.contains_key(name) {
+                return Some(scope.bindings.get_mut(name).unwrap());
+            }
+
+            if let Some(parent) = &mut scope.parent {
+                if let Some(parent) = Rc::get_mut(parent) {
+                    scope = parent;
+                } else {
+                    // Couldn't go further up the scope chain because it is branched
+                    return None;
+                }
+            } else {
+                // Couldn't go further up the scope chain because we reached the end.
+                return None;
+            }
+        }
     }
 }
 

@@ -272,7 +272,22 @@ impl Eval for ast::List {
         "List"
     }
 }
-impl UnimplementedEval for ast::Assignment {
+impl Eval for ast::Assignment {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let self2 = self.clone();
+        int.push_eval(Rc::new(Custom {
+            name: "AssignmentInner",
+            function: move |int| {
+                let value = int.pop_value();
+
+                let ident = &self2.location;
+                *int.resolve_binding_mut(ident)
+                    .expect("Failed to get value as mut.") = value;
+            },
+        }));
+
+        int.push_eval(self.expr.clone().into_eval());
+    }
     fn short_name(&self) -> &str {
         "Assignment"
     }
