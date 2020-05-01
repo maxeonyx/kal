@@ -1,0 +1,76 @@
+
+// Intrinsics I would like to implement:
+// Operations on Lists
+// Operations on Strings
+// Operations on Objects
+// Standard symbols / effects
+// - Log
+// - Error
+// - Yield
+// - Request
+
+
+// pythonic
+let length = len(list);
+// len() looks for the len symbol OR if the value is a list or object or string it calls an intrinsic
+
+// "pythonic" list push
+push(list, element)
+// I don't like this syntax. I prefer the JS/Rust like
+list.push(element) // OR
+list.append(element) // even python uses this syntax
+
+// however when calling methods on other things like objects, how should the self parameter be provided?
+// JS-like
+let obj = {
+    thing: 12,
+    mult_x: fn (x) {
+        // self is magically defined
+        self.thing * x
+    },
+};
+obj.mult_x(4);
+
+// python-like
+let obj = {
+    thing: 12,
+    mult_x: fn (self, x) {
+        // self gets passed in as first parameter
+        self.thing * x
+    },
+};
+obj.mult_x(4);
+
+// rust-like?? extension-method-like
+let obj = {
+    thing: 12,
+};
+let mult_x = fn (self, x) {
+    // self is a keyword that allows this function to be called from method syntax.
+    self.thing * x
+};
+obj.mult_x(4);
+
+// functional-language like. use a different operator for first-parameter passing
+// unlike functional languages it would allow mutating the parameters
+let obj = {
+    thing: 12,
+};
+let mult_x = fn(self, x) {
+    self.thing * x
+};
+
+// Syntaxes for calling a "method", if there is no magic in the . operator.
+// Pipeline operator on standalone function is a neat solution
+obj | mult_x(4);
+obj|mult_x(4);
+
+// Lua does it this way
+obj:mult_x(4);
+
+// alternative syntaxes
+obj >> mult_x(4);
+obj -> mult_x(4);
+obj->mult_x(4);
+obj..mult_x(4);
+obj do mult_x(4);
