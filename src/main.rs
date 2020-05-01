@@ -1,24 +1,24 @@
-use new_interpreter::Interpreter;
-
-#[macro_use]
-extern crate lalrpop_util;
-
 #[cfg(test)]
 mod tests;
 
 mod ast;
-mod new_interpreter;
+mod eval;
+mod eval_impls;
+mod interpreter;
 
+use lalrpop_util::lalrpop_mod;
 lalrpop_mod!(#[allow(clippy::all)] pub kal_grammar);
+
+use interpreter::Interpreter;
 
 fn main() {
     let ast = kal_grammar::BlockInnerParser::new()
         .parse(include_str!("../examples/handle_implicit.kal"))
         .unwrap_or_else(|err| panic!("Failed to parse file, {:?}", err));
 
-    let mut runtime = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = runtime.eval(ast);
+    let result = interpreter.eval(ast);
 
     println!("{:#?}", result);
 }

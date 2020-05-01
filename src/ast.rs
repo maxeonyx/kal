@@ -1,5 +1,4 @@
-use super::new_interpreter::eval::Eval;
-use crate::new_interpreter::eval::IntoEval;
+use crate::eval::{Eval, IntoEval};
 use std::{fmt::Debug, rc::Rc};
 
 pub trait Statement: Eval + IntoEval<dyn Eval> {}

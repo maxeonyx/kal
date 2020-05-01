@@ -1,4 +1,4 @@
-use crate::new_interpreter::{Interpreter, Key, Value};
+use crate::interpreter::{Interpreter, Key, Value};
 use std::{collections::HashMap, rc::Rc};
 
 #[allow(dead_code)]

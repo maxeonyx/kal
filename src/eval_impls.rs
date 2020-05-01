@@ -1,6 +1,9 @@
 use super::{
-    eval::{Eval, UnimplementedEval},
-    Closure, Effect, FunctionContext, Interpreter, Key, Scope, SubContext, SubContextType, Value,
+    eval::Eval,
+    interpreter::{
+        Closure, Effect, FunctionContext, Interpreter, Key, Scope, SubContext, SubContextType,
+        Value,
+    },
 };
 use crate::ast;
 use std::{collections::HashMap, fmt, rc::Rc};
@@ -88,9 +91,9 @@ impl Eval for ast::ComparisonExpression {
                 let left = int.pop_value();
                 let right = int.pop_value();
 
-                use super::Value::*;
                 use ast::ComparisonOperator;
                 use ast::ComparisonOperator::*;
+                use Value::*;
 
                 fn full_compare<T: std::cmp::Eq + std::cmp::PartialOrd>(
                     operator: &ComparisonOperator,
@@ -323,7 +326,7 @@ impl Eval for ast::Null {
 
 impl Eval for ast::Symbol {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        let symbol = int.sym_gen.gen();
+        let symbol = int.gen_symbol();
         int.push_value(symbol);
     }
     fn short_name(&self) -> &str {
@@ -531,18 +534,9 @@ impl Eval for ast::NegativeExpression {
 
 impl Eval for String {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        let mut scope = &int.current_fn_context().scope.clone();
-        loop {
-            if let Some(value) = scope.bindings.get(&*self) {
-                int.push_value(value.clone());
-                return;
-            }
-
-            if let Some(parent) = &scope.parent {
-                scope = parent;
-                continue;
-            }
-
+        if let Some(value) = int.resolve_binding(&self) {
+            int.push_value(value);
+        } else {
             panic!("Could not resolve name {:?}", self);
         }
     }
@@ -565,7 +559,7 @@ impl Eval for ast::FunctionInvocation {
                 let param_names = &closure.code.parameters;
 
                 let body = closure.code.body.clone();
-                let scope = Scope::extend(closure.scope.clone());
+                let scope = Scope::extend(closure.parent_scope.clone());
 
                 // param lists of different length
                 assert!(
@@ -787,7 +781,7 @@ impl Eval for WrapperFunction {
 
         let self2 = Rc::try_unwrap(self)
             .expect("Implementation error - Couldn't unwrap a WrapperFunction, it is aliased.");
-        let scope = Scope::extend(int.current_fn_context().scope.clone());
+        let scope = Scope::extend(int.current_scope().clone());
 
         int.push_fn_context(FunctionContext::new(scope));
         int.push_eval(self2.body.into_eval());
