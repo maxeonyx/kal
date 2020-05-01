@@ -64,7 +64,7 @@ And my todo list is as follows:
 - [x] Symbols
 - [x] Effects (`send` / `handle` / `resume`)
 - [ ] Intrinsics (language-defined functions)
-- [ ] Mutable let bindings
+- [x] Mutable let bindings
 - [ ] Mutable assignment operators
 - [ ] Mutable function parameters
 - [ ] Mutable object keys and list elements
@@ -76,7 +76,7 @@ And my todo list is as follows:
 - [ ] Proper error support for type errors.
 - [ ] Proper error support for syntax errors.
 - [x] Non-recursive, higher performance interpreter
-- [ ] Replace KalRef with Rc
+- [x] Replace KalRef with Rc
 - [ ] BigInts and coercion on over/underflow
 - [ ] Floating point numbers
 - [ ] Markdown-like comments with `#` symbol
