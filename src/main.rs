@@ -7,8 +7,6 @@ extern crate lalrpop_util;
 mod tests;
 
 mod ast;
-// mod interpreter;
-mod kal_ref;
 mod new_interpreter;
 
 lalrpop_mod!(#[allow(clippy::all)] pub kal_grammar);

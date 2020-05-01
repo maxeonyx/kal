@@ -2,7 +2,7 @@ use super::{
     eval::{Eval, UnimplementedEval},
     Closure, Effect, FunctionContext, Interpreter, Key, Scope, SubContext, SubContextType, Value,
 };
-use crate::{ast, kal_ref::KalRef};
+use crate::ast;
 use std::{collections::HashMap, fmt, rc::Rc};
 
 struct Custom<T: Fn(&mut Interpreter)> {
@@ -67,7 +67,7 @@ impl Eval for ast::Object {
                     map.insert(Key::Str(pair.0.clone()), value);
                 }
 
-                int.push_value(Value::Object(KalRef::new(map)));
+                int.push_value(Value::Object(Rc::new(map)));
             },
         }));
 
@@ -256,7 +256,7 @@ impl Eval for ast::List {
                         }
                     }
                 }
-                int.push_value(Value::List(KalRef::new(list)))
+                int.push_value(Value::List(Rc::new(list)))
             },
         }));
 
@@ -337,7 +337,7 @@ impl Eval for ast::Int {
 impl Eval for ast::Function {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let scope = int.branch_scope();
-        let value = Value::Closure(KalRef::new(Closure::new(self, scope)));
+        let value = Value::Closure(Rc::new(Closure::new(self, scope)));
         int.push_value(value);
     }
     fn short_name(&self) -> &str {
@@ -599,7 +599,7 @@ impl Eval for Handler {
             }
         };
 
-        let Effect { symbol, value, ctx } = effect.try_into_inner().expect("Couldn't get the context out of an effect. The effect was aliased when it shouldn't have been.");
+        let Effect { symbol, value, ctx } = Rc::try_unwrap(effect).expect("Couldn't get the context out of an effect. The effect was aliased when it shouldn't have been.");
 
         int.push_sub_context(SubContext::new(SubContextType::Handle(
             self.clone(),
@@ -696,7 +696,7 @@ impl Eval for SendInner {
 
         let ctx = int.pop_fn_context();
 
-        int.push_value(Value::Effect(KalRef::new(Effect { symbol, value, ctx })))
+        int.push_value(Value::Effect(Rc::new(Effect { symbol, value, ctx })))
     }
     fn short_name(&self) -> &str {
         "SendInner"

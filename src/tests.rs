@@ -1,7 +1,5 @@
-use crate::kal_ref::KalRef;
 use crate::new_interpreter::{Interpreter, Key, Value};
-
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 #[allow(dead_code)]
 fn eval_file(path: &str) -> Value {
@@ -83,13 +81,13 @@ test! { comparison_false, Value::Bool(false) }
 
 test! { release_mode_only, big_recursive, Value::Int(1_000_000) }
 
-test! { object_empty, Value::Object(KalRef::new(HashMap::new())) }
+test! { object_empty, Value::Object(Rc::new(HashMap::new())) }
 
 test! { object_simple,
     {
         let mut obj = HashMap::new();
         obj.insert(Key::Str("cat".to_owned()), Value::Int(1));
-        Value::Object(KalRef::new(obj))
+        Value::Object(Rc::new(obj))
     }
 }
 
@@ -117,7 +115,7 @@ test! { symbol_equality, Value::Bool(false) }
 
 test! { trailing_commas, Value::Int(2) }
 
-test! { list, Value::List(KalRef::new(vec![Value::Int(1), Value::Int(2), Value::Int(3)])) }
+test! { list, Value::List(Rc::new(vec![Value::Int(1), Value::Int(2), Value::Int(3)])) }
 
 test! { list_index, Value::Int(29) }
 
@@ -125,7 +123,7 @@ test! { list_index_expression, Value::Int(32) }
 
 test! { list_negative_index, Value::Int(53) }
 
-test! { list_spread, Value::List(KalRef::new(vec![Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4), Value::Int(5), Value::Int(6)])) }
+test! { list_spread, Value::List(Rc::new(vec![Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4), Value::Int(5), Value::Int(6)])) }
 
 test! { int, Value::Int(5) }
 

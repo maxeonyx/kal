@@ -1,5 +1,4 @@
 use crate::ast;
-use crate::kal_ref::KalRef;
 use std::{collections::HashMap, rc::Rc};
 
 pub mod eval;
@@ -23,21 +22,21 @@ pub enum Value {
     Null,
     Bool(bool),
     Int(i64),
-    List(KalRef<Vec<Value>>),
-    Object(KalRef<HashMap<Key, Value>>),
-    Closure(KalRef<Closure>),
+    List(Rc<Vec<Value>>),
+    Object(Rc<HashMap<Key, Value>>),
+    Closure(Rc<Closure>),
     Symbol(u64),
-    Effect(KalRef<Effect>),
+    Effect(Rc<Effect>),
 }
 
 #[derive(Debug)]
 pub struct Closure {
     pub code: Rc<Function>,
-    pub scope: KalRef<Scope>,
+    pub scope: Rc<Scope>,
 }
 
 impl Closure {
-    pub fn new(code: Rc<Function>, scope: KalRef<Scope>) -> Self {
+    pub fn new(code: Rc<Function>, scope: Rc<Scope>) -> Self {
         Closure { code, scope }
     }
 }
@@ -80,7 +79,7 @@ impl SymbolGenerator {
 
 #[derive(Debug)]
 pub struct Scope {
-    parent: Option<KalRef<Scope>>,
+    parent: Option<Rc<Scope>>,
     bindings: HashMap<String, Value>,
 }
 impl Scope {
@@ -91,8 +90,8 @@ impl Scope {
         }
     }
 
-    fn extend(parent: KalRef<Scope>) -> KalRef<Self> {
-        KalRef::new(Self {
+    fn extend(parent: Rc<Scope>) -> Rc<Self> {
+        Rc::new(Self {
             parent: Some(parent),
             bindings: HashMap::new(),
         })
@@ -126,12 +125,12 @@ impl SubContext {
 
 #[derive(Debug)]
 pub struct FunctionContext {
-    scope: KalRef<Scope>,
+    scope: Rc<Scope>,
     sub_context_stack: Vec<SubContext>,
 }
 
 impl FunctionContext {
-    fn new(scope: KalRef<Scope>) -> Self {
+    fn new(scope: Rc<Scope>) -> Self {
         Self {
             scope,
             sub_context_stack: vec![SubContext::new(SubContextType::Plain)],
@@ -146,7 +145,7 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         let sym_gen = SymbolGenerator::new();
-        let scope = KalRef::new(Scope::new());
+        let scope = Rc::new(Scope::new());
         Interpreter {
             sym_gen,
             fn_context_stack: vec![FunctionContext::new(scope)],
@@ -240,7 +239,7 @@ impl Interpreter {
         value_left_over
     }
 
-    fn branch_scope(&mut self) -> KalRef<Scope> {
+    fn branch_scope(&mut self) -> Rc<Scope> {
         let scope1 = Scope::extend(self.current_fn_context().scope.clone());
         let scope2 = Scope::extend(self.current_fn_context().scope.clone());
         self.current_fn_context().scope = scope1;
@@ -330,9 +329,7 @@ impl Interpreter {
 
     fn create_binding(&mut self, name: String, value: Value) {
         // create new scope if the current one has been borrowed? (by a closure)
-        self.current_fn_context()
-            .scope
-            .borrow_mut()
+        Rc::get_mut(&mut self.current_fn_context().scope)
             .unwrap_or_else(|| {
                 panic!(
                     "Implementation error - borrow_mut failed create_binding for {:?}.",
