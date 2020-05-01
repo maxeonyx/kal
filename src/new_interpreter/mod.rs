@@ -9,7 +9,6 @@ use ast::{Expression, Function};
 use eval::Eval;
 use eval_impls::{Handler, WrapperFunction};
 
-#[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Key {
     Null,
@@ -19,7 +18,6 @@ pub enum Key {
     Str(String),
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Null,
