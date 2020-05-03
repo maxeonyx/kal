@@ -84,4 +84,4 @@ And my todo list is as follows:
 - [ ] CLI binary
 - [ ] Embeddable Rust library
 - [ ] JS/WASM runtime
-- [ ] Native runtime
+- [ ] Native runtime 
