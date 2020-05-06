@@ -156,7 +156,7 @@ impl<T> Mut<T> {
         unsafe { &(*self.ptr).value }
     }
 
-    pub fn get_mut(&self) -> &mut T {
+    pub fn get_mut(&mut self) -> &mut T {
         unsafe { &mut (*self.ptr).value }
     }
 
