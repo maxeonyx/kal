@@ -32,3 +32,34 @@ let mut var = 5;
 let f = fn(x) var = x;
 f(f) // f holds a reference to the context containing var, which now holds a reference to f
 // its contrived but i think it will happen in practice
+
+
+
+
+// ========================================
+
+// creates reference to heap allocated int.
+let mut val = 5;
+// MOVES val into obj
+let mut obj = { val, };
+// error, val is moved.
+print(val);
+
+
+// creates ordinary binding (value not heap allocated)
+let val = 5;
+// Replaces val binding in scope with a Ref and adds mut binding to obj.
+let obj = mut { mut val, }
+obj.val += 1;
+// fails
+print(val);
+drop obj;
+// succeeds
+print(val);
+
+
+let val = 5;
+let obj = { mut val };
+obj.val += 1; // fails. obj not mutable, even though val is. This is valid but wierd.
+let obj = mut { val };
+obj.val += 1; // fails. val not mutable.

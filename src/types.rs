@@ -17,6 +17,7 @@ pub enum Value {
     Bool(bool),
     Int(i64),
     Symbol(u64),
+    Ref(Ref<Value>),
     Mut(Mut<Value>),
     List(List),
     ListMut(ListMut),
@@ -34,6 +35,8 @@ impl Value {
             Bool(_) => false,
             Int(_) => false,
             Symbol(_) => false,
+
+            Ref(_) => false,
             List(_) => false,
             Object(_) => false,
             Closure(_) => false,
@@ -49,18 +52,29 @@ impl Value {
 impl Clone for Value {
     fn clone(&self) -> Self {
         use Value::*;
-        match self {
-            Null => Null,
-            Bool(val) => Bool(*val),
-            Int(val) => Int(*val),
-            Symbol(val) => Symbol(*val),
+        let val = match self {
+            Null => Some(Null),
+            Bool(val) => Some(Bool(*val)),
+            Int(val) => Some(Int(*val)),
+            Symbol(val) => Some(Symbol(*val)),
+
+            // Closure is a reference type but can never be mutable, cloning always succeeds.
+            Closure(val) => Some(Closure(val.clone())),
+
+            // For other reference types cloning might fail with a runtime error.
+            Ref(val) => val.try_clone().map(|val_ref| Ref(val_ref)),
+            List(val) => val.try_clone(),
+            Object(val) => val.try_clone(),
+
+            // Language implementation should never try to clone a mutable reference.
             Mut(_) => panic!("Implementation error - tried to clone a mut ref."),
-            List(val) => List(val.clone()),
             ListMut(_) => panic!("Implementation error - tried to clone a mut list."),
-            Object(val) => Object(val.clone()),
             ObjectMut(_) => panic!("Implementation error - tried to clone a mut object."),
-            Closure(val) => Closure(val.clone()),
             Effect(_) => panic!("Implementation error - tried to clone an effect."),
+        };
+        match val {
+            Some(val) => val,
+            None => panic!("Couldn't clone the value, it has been mutably borrowed."),
         }
     }
 }

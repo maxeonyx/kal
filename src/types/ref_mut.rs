@@ -3,7 +3,8 @@ An alternative to Rc<RefCell<T>> for Kal reference types (Lists, Objects, String
 
 Unlike RefCell they do NOT provide interior mutability! You must have an &mut Ref<T> in
 order to get a Mut<T>. However, it is possible to create a reference cycle with these types since `try_borrow`
-does not consume the Ref. The kal language itself does not allow this however.
+does not consume the Ref. The kal language itself does not allow this however, because mutable assignments always
+clone the right-hand side expression.
 
 Unlike the guard types from RefCell, Mut shares ownership with the original Ref, allowing the
 original Ref to be dropped. In addition, the original Ref can still exist, becoming active again
@@ -13,11 +14,11 @@ It acts like Rc, and allows aliasing via clone().
 If you have a &mut Ref, you can ask to get a Mut to the value. This will not succeed if other
 Refs exist.
 
-There cannot be more than one Mut given out by this type.
-We only give a Mut when `ref_count == 1`. Therefore, we will not return a Mut
-if there are any other Refs to this value before calling `borrow_mut()`.
+There cannot be more than one Mut given out by this type. We only give a Mut when `ref_count == 1`. Therefore,
+`try_borrow()` will fail if there are any other Refs to the value.
 
-After creating a Mut with `try_borrow()`, trying to read the inner value of the Ref will fail, as will `clone()`.
+After creating a Mut with `try_borrow()`, trying to read the inner value of the Ref will fail. Importantly,
+`try_clone()` will also fail. This prevents the creation of reference cycles in kal.
 */
 
 use std::{
@@ -74,7 +75,7 @@ impl<T> Ref<T> {
     /// Will not succeed if there is a Mut.
     pub fn try_clone(&self) -> Option<Self> {
         // allowed if there are other Ref but not if there is a Mut
-        if self.is_borrowed() {
+        if self.get_borrowed() {
             None
         } else {
             self.inc_ref_count();
@@ -86,7 +87,7 @@ impl<T> Ref<T> {
     /// Will not succeed if there is a Mut.
     pub fn try_get(&self) -> Option<&T> {
         // allowed if there are other Ref but not if there is a Mut
-        if self.is_borrowed() {
+        if self.get_borrowed() {
             None
         } else {
             Some(unsafe { &(*self.ptr).value })
@@ -148,6 +149,12 @@ impl<T> Ref<T> {
             Err(self)
         }
     }
+
+    // Returns true if this is the only reference to the inner value. If so,
+    // all operations will succeed.
+    pub fn is_unique(&self) -> bool {
+        self.ref_count() == 1
+    }
 }
 
 #[allow(unused)]
@@ -188,6 +195,12 @@ impl<T> Mut<T> {
         } else {
             Err(self)
         }
+    }
+
+    // Returns true if this is the only reference to the inner value. If so,
+    // all operations will succeed.
+    pub fn is_unique(&self) -> bool {
+        self.ref_count() == 1
     }
 }
 
@@ -274,7 +287,7 @@ impl<T> Ref<T> {
             (*self.ptr).borrowed = true;
         }
     }
-    fn is_borrowed(&self) -> bool {
+    fn get_borrowed(&self) -> bool {
         unsafe { (*self.ptr).borrowed }
     }
 }

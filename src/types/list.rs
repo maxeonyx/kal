@@ -6,20 +6,18 @@ use super::{Mut, Ref, Value};
 
 #[derive(Debug, PartialEq)]
 pub struct List {
-    vec: Ref<Vec<Value>>,
+    vec_ref: Ref<Vec<Value>>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ListMut {
-    vec: Mut<Vec<Value>>,
+    vec_mut: Mut<Vec<Value>>,
 }
 
-impl Clone for List {
-    fn clone(&self) -> Self {
-        List {
-            vec: self.vec.try_clone().expect(
-                "Implementation error - failed to clone a List, it is borrowed as ListMut.",
-            ),
-        }
+impl List {
+    pub fn try_clone(&self) -> Option<Value> {
+        self.vec_ref
+            .try_clone()
+            .map(|vec_ref| Value::List(List { vec_ref }))
     }
 }

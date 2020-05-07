@@ -16,20 +16,18 @@ pub enum Key {
 
 #[derive(Debug, PartialEq)]
 pub struct Object {
-    map: Ref<HashMap<Key, Value>>,
+    map_ref: Ref<HashMap<Key, Value>>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ObjectMut {
-    map: Mut<HashMap<Key, Value>>,
+    map_mut: Mut<HashMap<Key, Value>>,
 }
 
-impl Clone for Object {
-    fn clone(&self) -> Self {
-        Object {
-            map: self.map.try_clone().expect(
-                "Implementation error - failed to clone an Object, it is borrowed as ObjectMut.",
-            ),
-        }
+impl Object {
+    pub fn try_clone(&self) -> Option<Value> {
+        self.map_ref
+            .try_clone()
+            .map(|map_ref| Value::Object(Object { map_ref }))
     }
 }
