@@ -160,7 +160,9 @@ NormalExpression: Rc<dyn Expression> = {
 }
 
 SimpleExpression: Rc<dyn Expression> = {
-    <location:IdentLocationExpression> => Rc::new(location),
+    <location:IdentLocation> => Rc::new(location),
+    <location:DotLocation> => Rc::new(location),
+    <location:IndexLocation> => Rc::new(location),
     <location:DotLocationExpression> => Rc::new(location),
     <location:IndexLocationExpression> => Rc::new(location),
     <fi:FunctionInvocation> => fi,
@@ -202,7 +204,7 @@ LetStatement: Rc<LetStatement> = {
 }
 
 Assignment: Rc<Assignment> = {
-    "mut" <location:LocationChain> "=" <expr:Expression> =>
+    <location:LocationChain> "=" <expr:Expression> =>
         Rc::new(Assignment {
             location,
             expr,
@@ -361,18 +363,9 @@ LocationChainExpression: LocationChain = {
         base: LocationChainBase::Expression(expr),
         parts: Vec::new(),
     },
-    <location:IdentLocationExpression> => location,
     <location:DotLocationExpression> => location,
     <location:IndexLocationExpression> => location,
 }
-
-IdentLocationExpression: LocationChain = {
-    <string:Ident> => LocationChain {
-        base: LocationChainBase::Ident(string),
-        parts: Vec::new(),
-    },
-}
-
 
 DotLocationExpression: LocationChain = {
     <base:LocationChainExpression> "." <prop:Ident> => {

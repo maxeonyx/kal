@@ -1,5 +1,5 @@
 let a = 5;
 let b = 5;
 let c = 5;
-mut a = 999;
+a = 999;
 a
