@@ -66,8 +66,7 @@ And my todo list is as follows:
 - [ ] Intrinsics (language-defined functions)
 - [x] Mutable let bindings
 - [ ] Mutable assignment operators
-- [ ] Mutable function parameters
-- [ ] Mutable object keys and list elements
+- [x] Mutable object keys and list elements
 - [ ] Import / export
 - [ ] Print
 - [x] List spread operator
