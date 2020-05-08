@@ -141,9 +141,17 @@ test! { num_division, Value::Int(2) }
 
 test! { mut_num, Value::Int(2) }
 
+test! { mut_multi, Value::Int(111) }
+
 test! { mut_multi_let, Value::Int(999) }
 
 test! { mut_increment, Value::Int(61) }
+
+test! { mut_list_index, Value::Int(99) }
+
+test! { mut_object_access, Value::Bool(true) }
+
+test! { mut_deep, Value::Int(3) }
 
 test! { handle_resume, Value::Int(9) }
 

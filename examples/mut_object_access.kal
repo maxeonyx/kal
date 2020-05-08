@@ -1,0 +1,4 @@
+let a = { dogs: 0 };
+a.dogs = 719;
+let good_number_of_dogs = a.dogs > 0;
+good_number_of_dogs
