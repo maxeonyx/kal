@@ -2,7 +2,10 @@ use crate::ast;
 use std::{collections::HashMap, rc::Rc};
 
 use crate::eval::Eval;
-use crate::eval_impls::{Handler, WrapperFunction};
+use crate::{
+    eval_impls::{Handler, WrapperFunction},
+    intrinsics::{intrinsic_scope, Intrinsic},
+};
 use ast::{Expression, Function};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -24,7 +27,7 @@ pub enum Value {
     Closure(Rc<Closure>),
     Symbol(u64),
     Effect(Rc<Effect>),
-    Location(Rc<Value>),
+    Intrinsic(Intrinsic),
 }
 
 #[derive(Debug)]
@@ -85,11 +88,8 @@ pub struct Scope {
     bindings: HashMap<String, Value>,
 }
 impl Scope {
-    fn new() -> Self {
-        Self {
-            parent: None,
-            bindings: HashMap::new(),
-        }
+    pub fn with_bindings(parent: Option<Rc<Scope>>, bindings: HashMap<String, Value>) -> Self {
+        Self { parent, bindings }
     }
 
     pub fn extend(parent: Rc<Scope>) -> Rc<Self> {
@@ -147,7 +147,7 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         let sym_gen = SymbolGenerator::new();
-        let scope = Rc::new(Scope::new());
+        let scope = intrinsic_scope(None);
         Interpreter {
             sym_gen,
             fn_context_stack: vec![FunctionContext::new(scope)],

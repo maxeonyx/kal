@@ -5,6 +5,7 @@ mod ast;
 mod eval;
 mod eval_impls;
 mod interpreter;
+mod intrinsics;
 
 use lalrpop_util::lalrpop_mod;
 lalrpop_mod!(#[allow(clippy::all)] pub kal_grammar);

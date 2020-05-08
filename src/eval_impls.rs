@@ -5,49 +5,26 @@ use super::{
         Value,
     },
 };
-use crate::ast;
-use std::{collections::HashMap, fmt, rc::Rc};
-
-struct Custom<T: Fn(&mut Interpreter)> {
-    name: &'static str,
-    function: T,
-}
-impl<T: Fn(&mut Interpreter)> fmt::Debug for Custom<T> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("Custom")
-            .field("name", &self.name)
-            .finish()
-    }
-}
-impl<T: Fn(&mut Interpreter)> Eval for Custom<T> {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        (self.function)(int)
-    }
-    fn short_name(&self) -> &str {
-        self.name
-    }
-}
+use crate::{ast, eval::Custom};
+use std::{collections::HashMap, rc::Rc};
 
 impl Eval for ast::DotExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let self2 = self.clone();
 
-        int.push_eval(Rc::new(Custom {
-            name: "DotInner",
-            function: move |int| {
-                let base = int.pop_value();
-                let base = match base {
-                    Value::Object(obj) => obj,
-                    _ => panic!("Can only use the . operator on an object."),
-                };
+        int.push_eval(Rc::new(Custom::new("DotInner", move |int| {
+            let base = int.pop_value();
+            let base = match base {
+                Value::Object(obj) => obj,
+                _ => panic!("Can only use the . operator on an object."),
+            };
 
-                let value = base
-                    .get(&Key::Str(self2.prop.clone()))
-                    .expect("Failed using the . operator. Key wasn't present.");
+            let value = base
+                .get(&Key::Str(self2.prop.clone()))
+                .expect("Failed using the . operator. Key wasn't present.");
 
-                int.push_value(value.clone());
-            },
-        }));
+            int.push_value(value.clone());
+        })));
 
         int.push_eval(self.base.clone().into_eval());
     }
@@ -59,20 +36,17 @@ impl Eval for ast::Object {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let self2 = self.clone();
 
-        int.push_eval(Rc::new(Custom {
-            name: "ObjectInner",
-            function: move |int| {
-                let mut map = HashMap::new();
+        int.push_eval(Rc::new(Custom::new("ObjectInner", move |int| {
+            let mut map = HashMap::new();
 
-                for pair in self2.pairs.iter() {
-                    let value = int.pop_value();
+            for pair in self2.pairs.iter() {
+                let value = int.pop_value();
 
-                    map.insert(Key::Str(pair.0.clone()), value);
-                }
+                map.insert(Key::Str(pair.0.clone()), value);
+            }
 
-                int.push_value(Value::Object(Rc::new(map)));
-            },
-        }));
+            int.push_value(Value::Object(Rc::new(map)));
+        })));
 
         for pair in self.pairs.iter() {
             int.push_eval(pair.1.clone().into_eval());
@@ -85,60 +59,57 @@ impl Eval for ast::Object {
 impl Eval for ast::ComparisonExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let operator = self.operator;
-        int.push_eval(Rc::new(Custom {
-            name: "ComparisonInner",
-            function: move |int| {
-                let left = int.pop_value();
-                let right = int.pop_value();
+        int.push_eval(Rc::new(Custom::new("ComparisonInner", move |int| {
+            let left = int.pop_value();
+            let right = int.pop_value();
 
-                use ast::ComparisonOperator;
-                use ast::ComparisonOperator::*;
-                use Value::*;
+            use ast::ComparisonOperator;
+            use ast::ComparisonOperator::*;
+            use Value::*;
 
-                fn full_compare<T: std::cmp::Eq + std::cmp::PartialOrd>(
-                    operator: &ComparisonOperator,
-                    left: T,
-                    right: T,
-                ) -> bool {
-                    match operator {
-                        Equal => left == right,
-                        NotEqual => left != right,
-                        Less => left < right,
-                        Greater => left > right,
-                        LessEqual => left <= right,
-                        GreaterEqual => left >= right,
-                    }
+            fn full_compare<T: std::cmp::Eq + std::cmp::PartialOrd>(
+                operator: &ComparisonOperator,
+                left: T,
+                right: T,
+            ) -> bool {
+                match operator {
+                    Equal => left == right,
+                    NotEqual => left != right,
+                    Less => left < right,
+                    Greater => left > right,
+                    LessEqual => left <= right,
+                    GreaterEqual => left >= right,
                 }
-                fn eq_compare<T: std::cmp::PartialEq + std::fmt::Debug>(
-                    operator: &ComparisonOperator,
-                    left: T,
-                    right: T,
-                ) -> bool {
-                    match operator {
-                        Equal => left == right,
-                        NotEqual => left != right,
-                        _ => panic!(
-                            "Invalid comparison. Cannot apply {:?} to {:?} and {:?}",
-                            operator, left, right
-                        ),
-                    }
-                }
-                let result = match &(operator, &left, &right) {
-                    (operator, Int(left), Int(right)) => full_compare(operator, left, right),
-                    (operator, Bool(left), Bool(right)) => eq_compare(operator, left, right),
-                    (operator, Symbol(left), Symbol(right)) => eq_compare(operator, left, right),
-                    (operator, List(left), List(right)) => eq_compare(operator, left, right),
-                    (operator, Object(left), Object(right)) => eq_compare(operator, left, right),
-                    (operator, Closure(left), Closure(right)) => eq_compare(operator, left, right),
-                    (operator, Null, Null) => eq_compare(operator, left, right),
+            }
+            fn eq_compare<T: std::cmp::PartialEq + std::fmt::Debug>(
+                operator: &ComparisonOperator,
+                left: T,
+                right: T,
+            ) -> bool {
+                match operator {
+                    Equal => left == right,
+                    NotEqual => left != right,
                     _ => panic!(
                         "Invalid comparison. Cannot apply {:?} to {:?} and {:?}",
                         operator, left, right
                     ),
-                };
-                int.push_value(Value::Bool(result));
-            },
-        }));
+                }
+            }
+            let result = match &(operator, &left, &right) {
+                (operator, Int(left), Int(right)) => full_compare(operator, left, right),
+                (operator, Bool(left), Bool(right)) => eq_compare(operator, left, right),
+                (operator, Symbol(left), Symbol(right)) => eq_compare(operator, left, right),
+                (operator, List(left), List(right)) => eq_compare(operator, left, right),
+                (operator, Object(left), Object(right)) => eq_compare(operator, left, right),
+                (operator, Closure(left), Closure(right)) => eq_compare(operator, left, right),
+                (operator, Null, Null) => eq_compare(operator, left, right),
+                _ => panic!(
+                    "Invalid comparison. Cannot apply {:?} to {:?} and {:?}",
+                    operator, left, right
+                ),
+            };
+            int.push_value(Value::Bool(result));
+        })));
 
         int.push_eval(self.left.clone().into_eval());
         int.push_eval(self.right.clone().into_eval());
@@ -199,31 +170,28 @@ impl Eval for ast::IfExpression {
 }
 impl Eval for ast::IndexExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        int.push_eval(Rc::new(Custom {
-            name: "IndexInner",
-            function: |int| {
-                let base = int.pop_value();
-                let index = int.pop_value();
-                let base = match base {
-                    Value::List(list) => list,
-                    _ => panic!("Can only apply the [] operator to lists."),
-                };
-                let index = match index {
-                    Value::Int(i) => i,
-                    _ => panic!("Can only use integer values in the [] operator."),
-                };
-                let size = base.len();
-                let index = if index < 0 {
-                    size - ((-index) as usize)
-                } else {
-                    index as usize
-                };
+        int.push_eval(Rc::new(Custom::new("IndexInner", |int| {
+            let base = int.pop_value();
+            let index = int.pop_value();
+            let base = match base {
+                Value::List(list) => list,
+                _ => panic!("Can only apply the [] operator to lists."),
+            };
+            let index = match index {
+                Value::Int(i) => i,
+                _ => panic!("Can only use integer values in the [] operator."),
+            };
+            let size = base.len();
+            let index = if index < 0 {
+                size - ((-index) as usize)
+            } else {
+                index as usize
+            };
 
-                let value = base.get(index).expect("Index out of bounds of list.");
+            let value = base.get(index).expect("Index out of bounds of list.");
 
-                int.push_value(value.clone());
-            },
-        }));
+            int.push_value(value.clone());
+        })));
 
         int.push_eval(self.base.clone().into_eval());
         int.push_eval(self.index.clone().into_eval());
@@ -235,33 +203,30 @@ impl Eval for ast::IndexExpression {
 impl Eval for ast::List {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let self2 = self.clone();
-        int.push_eval(Rc::new(Custom {
-            name: "ListInner",
-            function: move |int| {
-                let mut list = Vec::with_capacity(self2.elements.len());
-                for elem in &self2.elements {
-                    let value = int.pop_value();
-                    match elem {
-                        ast::ListElem::Spread(_) => {
-                            let spread_list = match value {
-                                Value::List(rc_vec) => rc_vec,
-                                _ => panic!(
-                                    "The ... operator in a list literal can only be applied to a list."
-                                ),
-                            };
-                            list.reserve(spread_list.len());
-                            for value in spread_list.iter() {
-                                list.push(value.clone());
-                            }
-                        }
-                        ast::ListElem::Elem(_) => {
+        int.push_eval(Rc::new(Custom::new("ListInner", move |int| {
+            let mut list = Vec::with_capacity(self2.elements.len());
+            for elem in &self2.elements {
+                let value = int.pop_value();
+                match elem {
+                    ast::ListElem::Spread(_) => {
+                        let spread_list = match value {
+                            Value::List(rc_vec) => rc_vec,
+                            _ => panic!(
+                                "The ... operator in a list literal can only be applied to a list."
+                            ),
+                        };
+                        list.reserve(spread_list.len());
+                        for value in spread_list.iter() {
                             list.push(value.clone());
                         }
                     }
+                    ast::ListElem::Elem(_) => {
+                        list.push(value.clone());
+                    }
                 }
-                int.push_value(Value::List(Rc::new(list)))
-            },
-        }));
+            }
+            int.push_value(Value::List(Rc::new(list)))
+        })));
 
         for elem in &self.elements {
             let expr = match elem {
@@ -278,16 +243,13 @@ impl Eval for ast::List {
 impl Eval for ast::Assignment {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let self2 = self.clone();
-        int.push_eval(Rc::new(Custom {
-            name: "AssignmentInner",
-            function: move |int| {
-                let value = int.pop_value();
+        int.push_eval(Rc::new(Custom::new("AssignmentInner", move |int| {
+            let value = int.pop_value();
 
-                let ident = &self2.location;
-                *int.resolve_binding_mut(ident)
-                    .expect("Failed to get value as mut.") = value;
-            },
-        }));
+            let ident = &self2.location;
+            *int.resolve_binding_mut(ident)
+                .expect("Failed to get value as mut.") = value;
+        })));
 
         int.push_eval(self.expr.clone().into_eval());
     }
@@ -297,17 +259,14 @@ impl Eval for ast::Assignment {
 }
 impl Eval for ast::NotExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        int.push_eval(Rc::new(Custom {
-            name: "NotInner",
-            function: |int| {
-                let val = int.pop_value();
-                let val = match val {
-                    Value::Bool(b) => b,
-                    _ => panic!("not operator can only be applied to bools."),
-                };
-                int.push_value(Value::Bool(!val))
-            },
-        }));
+        int.push_eval(Rc::new(Custom::new("NotInner", |int| {
+            let val = int.pop_value();
+            let val = match val {
+                Value::Bool(b) => b,
+                _ => panic!("not operator can only be applied to bools."),
+            };
+            int.push_value(Value::Bool(!val))
+        })));
         int.push_eval(self.expr.clone().into_eval())
     }
     fn short_name(&self) -> &str {
@@ -433,30 +392,27 @@ impl Eval for ast::LetStatement {
 impl Eval for ast::NumericExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let operator = self.operator;
-        int.push_eval(Rc::new(Custom {
-            name: "NumericInner",
-            function: move |int| {
-                let left = int.pop_value();
-                let right = int.pop_value();
+        int.push_eval(Rc::new(Custom::new("NumericInner", move |int| {
+            let left = int.pop_value();
+            let right = int.pop_value();
 
-                let left = match left {
-                    Value::Int(i) => i,
-                    _ => panic!("Cant add, left side not an Int."),
-                };
-                let right = match right {
-                    Value::Int(i) => i,
-                    _ => panic!("Cant add, right side not an Int."),
-                };
-                use ast::NumericOperator::*;
-                let val = match operator {
-                    Add => Value::Int(left + right),
-                    Multiply => Value::Int(left * right),
-                    Subtract => Value::Int(left - right),
-                    Divide => Value::Int(left / right),
-                };
-                int.push_value(val)
-            },
-        }));
+            let left = match left {
+                Value::Int(i) => i,
+                _ => panic!("Cant add, left side not an Int."),
+            };
+            let right = match right {
+                Value::Int(i) => i,
+                _ => panic!("Cant add, right side not an Int."),
+            };
+            use ast::NumericOperator::*;
+            let val = match operator {
+                Add => Value::Int(left + right),
+                Multiply => Value::Int(left * right),
+                Subtract => Value::Int(left - right),
+                Divide => Value::Int(left / right),
+            };
+            int.push_value(val)
+        })));
         int.push_eval(self.left.clone().into_eval());
         int.push_eval(self.right.clone().into_eval());
     }
@@ -474,29 +430,26 @@ impl Eval for ast::NumericExpression {
 impl Eval for ast::BooleanExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let operator = self.operator;
-        int.push_eval(Rc::new(Custom {
-            name: "BooleanInner",
-            function: move |int| {
-                let left = int.pop_value();
-                let right = int.pop_value();
+        int.push_eval(Rc::new(Custom::new("BooleanInner", move |int| {
+            let left = int.pop_value();
+            let right = int.pop_value();
 
-                let left = match left {
-                    Value::Bool(i) => i,
-                    _ => panic!("Cant compare, left side not a bool."),
-                };
-                let right = match right {
-                    Value::Bool(i) => i,
-                    _ => panic!("Cant compare, right side not a bool."),
-                };
-                use ast::BooleanOperator::*;
-                let val = match operator {
-                    And => Value::Bool(left && right),
-                    Or => Value::Bool(left || right),
-                    Xor => Value::Bool((!left && right) || (!right && left)),
-                };
-                int.push_value(val)
-            },
-        }));
+            let left = match left {
+                Value::Bool(i) => i,
+                _ => panic!("Cant compare, left side not a bool."),
+            };
+            let right = match right {
+                Value::Bool(i) => i,
+                _ => panic!("Cant compare, right side not a bool."),
+            };
+            use ast::BooleanOperator::*;
+            let val = match operator {
+                And => Value::Bool(left && right),
+                Or => Value::Bool(left || right),
+                Xor => Value::Bool((!left && right) || (!right && left)),
+            };
+            int.push_value(val)
+        })));
 
         // no short-circuiting at the moment
         int.push_eval(self.left.clone().into_eval());
@@ -509,22 +462,19 @@ impl Eval for ast::BooleanExpression {
 
 impl Eval for ast::NegativeExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        int.push_eval(Rc::new(Custom {
-            name: "NegativeInner",
-            function: move |int| {
-                let val = int.pop_value();
-                let val = match val {
-                    Value::Int(i) => i,
-                    _ => panic!("Cant negate, val not an Int."),
-                };
-                if val == std::i64::MIN {
-                    // TODO: BigInteger wrapping
-                    panic!("Can't negate i64::min.");
-                }
-                let val = -val;
-                int.push_value(Value::Int(val))
-            },
-        }));
+        int.push_eval(Rc::new(Custom::new("NegativeInner", move |int| {
+            let val = int.pop_value();
+            let val = match val {
+                Value::Int(i) => i,
+                _ => panic!("Cant negate, val not an Int."),
+            };
+            if val == std::i64::MIN {
+                // TODO: BigInteger wrapping
+                panic!("Can't negate i64::min.");
+            }
+            let val = -val;
+            int.push_value(Value::Int(val))
+        })));
         int.push_eval(self.expr.clone().into_eval());
     }
     fn short_name(&self) -> &str {
@@ -548,12 +498,22 @@ impl Eval for String {
 impl Eval for ast::FunctionInvocation {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let num_params_provided = self.parameters.len();
-        int.push_eval(Rc::new(Custom {
-            name: "FunctionInvocationInner",
-            function: move |int| {
+        int.push_eval(Rc::new(Custom::new(
+            "FunctionInvocationInner",
+            move |int| {
                 let closure = int.pop_value();
                 let closure = match closure {
                     Value::Closure(closure) => closure,
+                    Value::Intrinsic(intrinsic) => {
+                        assert!(
+                            num_params_provided == intrinsic.num_parameters(),
+                            "Must call function with the exact number of params."
+                        );
+
+                        int.push_eval(intrinsic.code());
+
+                        return;
+                    }
                     _ => panic!("Cannot call value other than closure."),
                 };
                 let param_names = &closure.code.parameters;
@@ -580,7 +540,7 @@ impl Eval for ast::FunctionInvocation {
 
                 int.push_eval(body);
             },
-        }));
+        )));
 
         int.push_eval(self.base.clone().into_eval());
 
@@ -771,13 +731,10 @@ pub struct WrapperFunction {
 }
 impl Eval for WrapperFunction {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        int.push_eval(Rc::new(Custom {
-            name: "WrapperFunctionInner",
-            function: |int| {
-                let value = int.pop_value();
-                int.push_value(value)
-            },
-        }));
+        int.push_eval(Rc::new(Custom::new("WrapperFunctionInner", |int| {
+            let value = int.pop_value();
+            int.push_value(value)
+        })));
 
         let self2 = Rc::try_unwrap(self)
             .expect("Implementation error - Couldn't unwrap a WrapperFunction, it is aliased.");

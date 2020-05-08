@@ -172,3 +172,11 @@ fn handle_empty() {
         _ => panic!("Expected an effect value, got something else."),
     }
 }
+
+#[test]
+fn size_of_value() {
+    // The Value type is a Rust enum. It has 8 bytes for the discriminant, plus
+    // the size in bytes of the largest variant. I would like all variants to be
+    // 8 bytes or smaller for performance
+    assert_eq!(std::mem::size_of::<Value>(), 16);
+}
