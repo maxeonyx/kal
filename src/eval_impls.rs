@@ -63,50 +63,95 @@ impl Eval for ast::ComparisonExpression {
             let left = int.pop_value();
             let right = int.pop_value();
 
-            use ast::ComparisonOperator;
-            use ast::ComparisonOperator::*;
-            use Value::*;
-
-            fn full_compare<T: std::cmp::Eq + std::cmp::PartialOrd>(
-                operator: &ComparisonOperator,
-                left: T,
-                right: T,
-            ) -> bool {
-                match operator {
-                    Equal => left == right,
-                    NotEqual => left != right,
-                    Less => left < right,
-                    Greater => left > right,
-                    LessEqual => left <= right,
-                    GreaterEqual => left >= right,
-                }
-            }
-            fn eq_compare<T: std::cmp::PartialEq + std::fmt::Debug>(
-                operator: &ComparisonOperator,
-                left: T,
-                right: T,
-            ) -> bool {
-                match operator {
-                    Equal => left == right,
-                    NotEqual => left != right,
-                    _ => panic!(
-                        "Invalid comparison. Cannot apply {:?} to {:?} and {:?}",
-                        operator, left, right
-                    ),
-                }
-            }
-            let result = match &(operator, &left, &right) {
-                (operator, Int(left), Int(right)) => full_compare(operator, left, right),
-                (operator, Bool(left), Bool(right)) => eq_compare(operator, left, right),
-                (operator, Symbol(left), Symbol(right)) => eq_compare(operator, left, right),
-                (operator, List(left), List(right)) => eq_compare(operator, left, right),
-                (operator, Object(left), Object(right)) => eq_compare(operator, left, right),
-                (operator, Closure(left), Closure(right)) => eq_compare(operator, left, right),
-                (operator, Null, Null) => eq_compare(operator, left, right),
-                _ => panic!(
+            let fail = |operator, left, right| {
+                panic!(
                     "Invalid comparison. Cannot apply {:?} to {:?} and {:?}",
                     operator, left, right
-                ),
+                );
+            };
+            use ast::ComparisonOperator::*;
+            use Value::*;
+            let full_compare = |operator, left, right| match operator {
+                Equal => left == right,
+                NotEqual => left != right,
+                Less => left < right,
+                Greater => left > right,
+                LessEqual => left <= right,
+                GreaterEqual => left >= right,
+            };
+            // This code is super long so that I can still take advantage of the Exhaustive Patterns error
+            // for Value variants.
+            let result = match &(operator, &left, &right) {
+                (Equal, Null, Null) => left == right,
+                (NotEqual, Null, Null) => left != right,
+                (operator, Null, Null) => fail(operator, left, right),
+
+                (Equal, Bool(left), Bool(right)) => left == right,
+                (NotEqual, Bool(left), Bool(right)) => left != right,
+                (operator, Bool(_), Bool(_)) => fail(operator, left, right),
+
+                (operator, Int(left), Int(right)) => full_compare(*operator, left, right),
+
+                (Equal, Symbol(left), Symbol(right)) => left == right,
+                (NotEqual, Symbol(left), Symbol(right)) => left != right,
+                (operator, Symbol(_), Symbol(_)) => fail(operator, left, right),
+
+                (Equal, List(left), List(right)) => left == right,
+                (NotEqual, List(left), List(right)) => left != right,
+                (operator, List(_), List(_)) => fail(operator, left, right),
+
+                (Equal, Object(left), Object(right)) => left == right,
+                (NotEqual, Object(left), Object(right)) => left != right,
+                (operator, Object(_), List(_)) => fail(operator, left, right),
+
+                (Equal, Closure(left), Closure(right)) => left == right,
+                (NotEqual, Closure(left), Closure(right)) => left != right,
+                (operator, Closure(_), Closure(_)) => fail(operator, left, right),
+
+                (Equal, Effect(left), Effect(right)) => left == right,
+                (NotEqual, Effect(left), Effect(right)) => left != right,
+                (operator, Effect(_), Effect(_)) => fail(operator, left, right),
+
+                (Equal, Intrinsic(left), Intrinsic(right)) => left == right,
+                (NotEqual, Intrinsic(left), Intrinsic(right)) => left != right,
+                (operator, Intrinsic(_), Intrinsic(_)) => fail(operator, left, right),
+
+                // Cover all cases with two different variants.
+                (Equal, Null, _) => false,
+                (NotEqual, Null, _) => true,
+                (operator, Null, _) => fail(operator, left, right),
+
+                (Equal, Bool(_), _) => false,
+                (NotEqual, Bool(_), _) => true,
+                (operator, Bool(_), _) => fail(operator, left, right),
+
+                (Equal, Int(_), _) => false,
+                (NotEqual, Int(_), _) => true,
+                (operator, Int(_), _) => fail(operator, left, right),
+
+                (Equal, Symbol(_), _) => false,
+                (NotEqual, Symbol(_), _) => true,
+                (operator, Symbol(_), _) => fail(operator, left, right),
+
+                (Equal, List(_), _) => false,
+                (NotEqual, List(_), _) => true,
+                (operator, List(_), _) => fail(operator, left, right),
+
+                (Equal, Object(_), _) => false,
+                (NotEqual, Object(_), _) => true,
+                (operator, Object(_), _) => fail(operator, left, right),
+
+                (Equal, Closure(_), _) => false,
+                (NotEqual, Closure(_), _) => true,
+                (operator, Closure(_), _) => fail(operator, left, right),
+
+                (Equal, Effect(_), _) => false,
+                (NotEqual, Effect(_), _) => true,
+                (operator, Effect(_), _) => fail(operator, left, right),
+
+                (Equal, Intrinsic(_), _) => false,
+                (NotEqual, Intrinsic(_), _) => true,
+                (operator, Intrinsic(_), _) => fail(operator, left, right),
             };
             int.push_value(Value::Bool(result));
         })));
@@ -280,16 +325,6 @@ impl Eval for ast::Null {
     }
     fn short_name(&self) -> &str {
         "LiteralNull"
-    }
-}
-
-impl Eval for ast::Symbol {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        let symbol = int.gen_symbol();
-        int.push_value(symbol);
-    }
-    fn short_name(&self) -> &str {
-        "Symbol"
     }
 }
 

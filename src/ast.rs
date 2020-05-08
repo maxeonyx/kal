@@ -28,10 +28,6 @@ pub struct Bool(pub bool);
 impl Expression for Bool {}
 
 #[derive(Debug)]
-pub struct Symbol;
-impl Expression for Symbol {}
-
-#[derive(Debug)]
 pub struct Int(pub i64);
 impl Expression for Int {}
 

@@ -1,4 +1,4 @@
-let yield = symbol;
+let yield = symbol();
 let gen = fn() {
     send yield 3
 };

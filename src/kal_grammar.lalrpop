@@ -268,7 +268,6 @@ Literal: Rc<dyn Expression> = {
     "null" => Rc::new(Null),
     "true" => Rc::new(Bool(true)),
     "false" => Rc::new(Bool(false)),
-    "symbol" => Rc::new(Symbol),
     <n:Int> => Rc::new(Int(n)),
     //<s:Str> => Literal::String(s),
     <l:List> => l,

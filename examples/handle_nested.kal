@@ -1,4 +1,4 @@
-let request = symbol;
+let request = symbol();
 let ask = fn() {
     send request null
 };

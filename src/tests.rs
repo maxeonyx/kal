@@ -155,6 +155,8 @@ test! { handle_nested, Value::Int(55) }
 
 test! { handle_nested_resume, Value::Int(20) }
 
+test! { handle_two_effect_types, Value::Int(25) }
+
 #[test]
 fn handle_implicit() {
     let val = eval_file("examples/handle_implicit.kal");
