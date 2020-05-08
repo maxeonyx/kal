@@ -1,4 +1,4 @@
-use crate::eval::{Eval, IntoEval};
+use crate::eval::{Eval, IntoEval, Location};
 use std::{fmt::Debug, rc::Rc};
 
 pub trait Statement: Eval + IntoEval<dyn Eval> {}
@@ -15,9 +15,6 @@ impl<'a, T: Statement + 'a> IntoStatement<dyn Statement + 'a> for T {
 }
 
 pub trait Expression: Statement + IntoStatement<dyn Statement> {}
-
-// Identifiers
-impl Expression for String {}
 
 #[derive(Debug)]
 pub struct Null;
@@ -40,7 +37,7 @@ impl Statement for LetStatement {}
 
 #[derive(Debug)]
 pub struct Assignment {
-    pub location: String,
+    pub location: LocationChain,
     pub expr: Rc<dyn Expression>,
 }
 impl Statement for Assignment {}
@@ -198,3 +195,26 @@ pub struct Resume {
     pub expr: Rc<dyn Expression>,
 }
 impl Expression for Resume {}
+
+#[derive(Debug)]
+pub struct LocationChain {
+    pub base: LocationChainBase,
+    pub parts: Vec<Rc<dyn Location>>,
+}
+impl Expression for LocationChain {}
+
+#[derive(Debug)]
+pub enum LocationChainBase {
+    Ident(String),
+    Expression(Rc<dyn Expression>),
+}
+
+#[derive(Debug)]
+pub struct DotLocation {
+    pub prop: String,
+}
+
+#[derive(Debug)]
+pub struct IndexLocation {
+    pub index: Rc<dyn Expression>,
+}

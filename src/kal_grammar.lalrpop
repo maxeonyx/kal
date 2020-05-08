@@ -160,27 +160,16 @@ NormalExpression: Rc<dyn Expression> = {
 }
 
 SimpleExpression: Rc<dyn Expression> = {
-    <i:Ident> => Rc::new(i),
+    <location:IdentLocationExpression> => Rc::new(location),
+    <location:DotLocationExpression> => Rc::new(location),
+    <location:IndexLocationExpression> => Rc::new(location),
     <fi:FunctionInvocation> => fi,
-    <de:DotExpression> => de,
-    <ie:IndexExpression> => ie,
-    <pe:ParenExpression> => pe,
+    ParenExpression,
 }
 
-DotExpression: Rc<DotExpression> = {
-    <base:SimpleExpression> "." <prop:Ident> =>
-        Rc::new(DotExpression {
-            base,
-            prop,
-        }),
-}
-
-IndexExpression: Rc<IndexExpression> = {
-    <base:SimpleExpression> "[" <index:Expression> "]" =>
-        Rc::new(IndexExpression {
-            base,
-            index,
-        }),
+LocationBaseExpression: Rc<dyn Expression> = {
+    <fi:FunctionInvocation> => fi,
+    ParenExpression,
 }
 
 ParenExpression: Rc<dyn Expression> = {
@@ -212,21 +201,12 @@ LetStatement: Rc<LetStatement> = {
     }),
 }
 
-Mut: bool = {
-    => false,
-    "mut" => true,
-}
-
 Assignment: Rc<Assignment> = {
-    <location:Location> "=" <expr:Expression> =>
+    "mut" <location:LocationChain> "=" <expr:Expression> =>
         Rc::new(Assignment {
             location,
             expr,
         }),
-}
-
-Location: String = {
-    <i:Ident> => i,
 }
 
 IfExpression: Rc<IfExpression> = {
@@ -341,4 +321,75 @@ Resume: Rc<Resume> = {
         Rc::new(Resume {
             expr,
         }),
+}
+
+LocationChain: LocationChain = {
+    <location:IdentLocation> => location,
+    <location:DotLocation> => location,
+    <location:IndexLocation> => location,
+}
+
+IdentLocation: LocationChain = {
+    <string:Ident> => LocationChain {
+        base: LocationChainBase::Ident(string),
+        parts: Vec::new(),
+    },
+}
+
+DotLocation: LocationChain = {
+    <base:LocationChain> "." <prop:Ident> => {
+        let mut base = base;
+        base.parts.push(Rc::new(DotLocation {
+            prop,
+        }));
+        base
+    },
+}
+
+IndexLocation: LocationChain = {
+    <base:LocationChain> "[" <index:Expression> "]" =>{
+        let mut base = base;
+        base.parts.push(Rc::new(IndexLocation {
+            index,
+        }));
+        base
+    },
+}
+
+LocationChainExpression: LocationChain = {
+    <expr:LocationBaseExpression> => LocationChain {
+        base: LocationChainBase::Expression(expr),
+        parts: Vec::new(),
+    },
+    <location:IdentLocationExpression> => location,
+    <location:DotLocationExpression> => location,
+    <location:IndexLocationExpression> => location,
+}
+
+IdentLocationExpression: LocationChain = {
+    <string:Ident> => LocationChain {
+        base: LocationChainBase::Ident(string),
+        parts: Vec::new(),
+    },
+}
+
+
+DotLocationExpression: LocationChain = {
+    <base:LocationChainExpression> "." <prop:Ident> => {
+        let mut base = base;
+        base.parts.push(Rc::new(DotLocation {
+            prop,
+        }));
+        base
+    },
+}
+
+IndexLocationExpression: LocationChain = {
+    <base:LocationChainExpression> "[" <index:Expression> "]" =>{
+        let mut base = base;
+        base.parts.push(Rc::new(IndexLocation {
+            index,
+        }));
+        base
+    },
 }

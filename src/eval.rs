@@ -1,4 +1,4 @@
-use super::Interpreter;
+use super::{interpreter::Value, Interpreter};
 use std::{
     fmt::{self, Debug},
     rc::Rc,
@@ -16,19 +16,6 @@ pub trait IntoEval<T: ?Sized> {
 impl<'a, T: Eval + 'a> IntoEval<dyn Eval + 'a> for T {
     fn into_eval(self: Rc<Self>) -> Rc<dyn Eval + 'a> {
         self
-    }
-}
-
-pub trait UnimplementedEval: Debug {
-    fn short_name(&self) -> &str;
-}
-
-impl<T: UnimplementedEval> Eval for T {
-    fn eval(self: Rc<Self>, _: &mut Interpreter) {
-        unimplemented!("unimplemented -- {} -- unimplemented", self.short_name())
-    }
-    fn short_name(&self) -> &str {
-        self.short_name()
     }
 }
 
@@ -56,4 +43,18 @@ impl<T: Fn(&mut Interpreter)> Eval for Custom<T> {
     fn short_name(&self) -> &str {
         self.name
     }
+}
+
+pub trait Location: Debug {
+    fn push_exprs(&self, int: &mut Interpreter);
+    fn resolve<'s, 'int>(
+        &'s self,
+        pop_value: &mut dyn FnMut() -> Value,
+        base: &'int Value,
+    ) -> &'int Value;
+    fn resolve_mut<'s, 'int>(
+        &'s self,
+        pop_value: &mut dyn FnMut() -> Value,
+        base: &'int mut Value,
+    ) -> &'int mut Value;
 }

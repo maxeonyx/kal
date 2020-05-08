@@ -6,7 +6,7 @@ use crate::{
     eval_impls::{Handler, WrapperFunction},
     intrinsics::{intrinsic_scope, Intrinsic},
 };
-use ast::{Expression, Function};
+use ast::{Expression, Function, LocationChain};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Key {
@@ -97,6 +97,51 @@ impl Scope {
             parent: Some(parent),
             bindings: HashMap::new(),
         })
+    }
+
+    pub fn resolve_binding<'scope>(self: &'scope Rc<Scope>, name: &str) -> Option<&'scope Value> {
+        let mut scope = self;
+        loop {
+            if scope.bindings.contains_key(name) {
+                return Some(scope.bindings.get(name).unwrap());
+            }
+            if let Some(parent) = &scope.parent {
+                scope = parent;
+            } else {
+                // Couldn't go further up the scope chain because we reached the end.
+                return None;
+            }
+        }
+    }
+
+    pub fn resolve_binding_mut<'scope>(
+        self: &'scope mut Rc<Scope>,
+        name: &str,
+    ) -> Option<&'scope mut Value> {
+        // This will always succeed the first time since the current scope is never aliased.
+        let mut scope = Rc::get_mut(self).unwrap_or_else(|| {
+            panic!(
+                "Implementation error - get_mut failed in resolve_binding_mut for {:?}.",
+                &name,
+            )
+        });
+        loop {
+            if scope.bindings.contains_key(name) {
+                return Some(scope.bindings.get_mut(name).unwrap());
+            }
+
+            if let Some(parent) = &mut scope.parent {
+                if let Some(parent) = Rc::get_mut(parent) {
+                    scope = parent;
+                } else {
+                    // Couldn't go further up the scope chain because it is branched
+                    return None;
+                }
+            } else {
+                // Couldn't go further up the scope chain because we reached the end.
+                return None;
+            }
+        }
     }
 }
 
@@ -350,46 +395,43 @@ impl Interpreter {
             .insert(name, value);
     }
 
-    pub fn resolve_binding(&mut self, name: &str) -> Option<Value> {
-        let mut scope = &self.current_fn_context().scope;
-        loop {
-            if scope.bindings.contains_key(name) {
-                return Some(scope.bindings.get(name).unwrap().clone());
-            }
-            if let Some(parent) = &scope.parent {
-                scope = parent;
-            } else {
-                // Couldn't go further up the scope chain because we reached the end.
-                return None;
-            }
+    pub fn resolve_location_chain(&mut self, location_chain: &LocationChain) -> Value {
+        let fnctx = self.current_fn_context();
+        let scope = &fnctx.scope;
+        let value_stack = &mut fnctx.sub_context_stack.last_mut().unwrap().value_stack;
+
+        let mut pop_value = || value_stack.pop().unwrap();
+
+        let val = match &location_chain.base {
+            ast::LocationChainBase::Ident(ident) => scope.resolve_binding(&ident).unwrap().clone(),
+            ast::LocationChainBase::Expression(_) => pop_value(),
+        };
+        let mut val_ref = &val;
+        for part in location_chain.parts.iter() {
+            val_ref = part.resolve(&mut pop_value, val_ref);
         }
+
+        val_ref.clone()
     }
 
-    pub fn resolve_binding_mut(&mut self, name: &str) -> Option<&mut Value> {
-        // This will always succeed the first time since the current scope is never aliased.
-        let mut scope = Rc::get_mut(&mut self.current_fn_context().scope).unwrap_or_else(|| {
-            panic!(
-                "Implementation error - get_mut failed in resolve_binding_mut for {:?}.",
-                &name,
-            )
-        });
-        loop {
-            if scope.bindings.contains_key(name) {
-                return Some(scope.bindings.get_mut(name).unwrap());
-            }
+    pub fn resolve_location_chain_mut(&mut self, location_chain: &LocationChain) -> &mut Value {
+        let fnctx = self.current_fn_context();
+        let scope = &mut fnctx.scope;
+        let value_stack = &mut fnctx.sub_context_stack.last_mut().unwrap().value_stack;
 
-            if let Some(parent) = &mut scope.parent {
-                if let Some(parent) = Rc::get_mut(parent) {
-                    scope = parent;
-                } else {
-                    // Couldn't go further up the scope chain because it is branched
-                    return None;
-                }
-            } else {
-                // Couldn't go further up the scope chain because we reached the end.
-                return None;
+        let mut pop_value = || value_stack.pop().unwrap();
+
+        let mut val_ref_mut = match &location_chain.base {
+            ast::LocationChainBase::Ident(ident) => {
+                scope.resolve_binding_mut(&ident).unwrap()
             }
+            _ => panic!("Implementation error - grammar should not allow a LocationChainExpression on the left hand side of an assignment."),
+        };
+        for part in location_chain.parts.iter() {
+            val_ref_mut = part.resolve_mut(&mut pop_value, val_ref_mut);
         }
+
+        val_ref_mut
     }
 
     pub fn gen_symbol(&mut self) -> Value {

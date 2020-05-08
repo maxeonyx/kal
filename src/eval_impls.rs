@@ -5,7 +5,10 @@ use super::{
         Value,
     },
 };
-use crate::{ast, eval::Custom};
+use crate::{
+    ast,
+    eval::{Custom, Location},
+};
 use std::{collections::HashMap, rc::Rc};
 
 impl Eval for ast::DotExpression {
@@ -226,12 +229,8 @@ impl Eval for ast::IndexExpression {
                 Value::Int(i) => i,
                 _ => panic!("Can only use integer values in the [] operator."),
             };
-            let size = base.len();
-            let index = if index < 0 {
-                size - ((-index) as usize)
-            } else {
-                index as usize
-            };
+
+            let index = wrap_list_index(base.len(), index);
 
             let value = base.get(index).expect("Index out of bounds of list.");
 
@@ -291,12 +290,14 @@ impl Eval for ast::Assignment {
         int.push_eval(Rc::new(Custom::new("AssignmentInner", move |int| {
             let value = int.pop_value();
 
-            let ident = &self2.location;
-            *int.resolve_binding_mut(ident)
-                .expect("Failed to get value as mut.") = value;
+            *int.resolve_location_chain_mut(&self2.location) = value;
         })));
 
         int.push_eval(self.expr.clone().into_eval());
+
+        for part in self.location.parts.iter() {
+            part.push_exprs(int);
+        }
     }
     fn short_name(&self) -> &str {
         "Assignment"
@@ -519,11 +520,12 @@ impl Eval for ast::NegativeExpression {
 
 impl Eval for String {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        if let Some(value) = int.resolve_binding(&self) {
-            int.push_value(value);
-        } else {
-            panic!("Could not resolve name {:?}", self);
-        }
+        let val_ref = match int.current_scope().resolve_binding(self.as_str()) {
+            Some(val_ref) => val_ref,
+            None => panic!("Could not resolve name {:?}", self.as_str()),
+        };
+        let value = val_ref.clone();
+        int.push_value(value);
     }
     fn short_name(&self) -> &str {
         "Ident"
@@ -781,5 +783,125 @@ impl Eval for WrapperFunction {
 
     fn short_name(&self) -> &str {
         "WrapperFunction"
+    }
+}
+
+impl Eval for ast::LocationChain {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let self2 = self.clone();
+        int.push_eval(Rc::new(Custom::new("LocationChainInner", move |int| {
+            let value = int.resolve_location_chain(&self2).clone();
+            int.push_value(value);
+        })));
+
+        if let ast::LocationChainBase::Expression(expr) = &self.base {
+            int.push_eval(expr.clone().into_eval());
+        }
+
+        for part in self.parts.iter() {
+            part.push_exprs(int);
+        }
+    }
+    fn short_name(&self) -> &str {
+        "LocationChain"
+    }
+}
+
+impl Location for ast::DotLocation {
+    fn push_exprs(&self, _int: &mut Interpreter) {}
+
+    fn resolve<'s, 'int>(
+        &'s self,
+        _pop_value: &mut dyn FnMut() -> Value,
+        base: &'int Value,
+    ) -> &'int Value {
+        let base = match base {
+            Value::Object(obj) => obj,
+            _ => panic!("Can only use the . operator on objects."),
+        };
+        match base.get(&Key::Str(self.prop.clone())) {
+            Some(val) => val,
+            None => panic!("The object does not contain the key {:?}.", self.prop),
+        }
+    }
+    fn resolve_mut<'s, 'int>(
+        &'s self,
+        _pop_value: &mut dyn FnMut() -> Value,
+        base: &'int mut Value,
+    ) -> &'int mut Value {
+        let base = match base {
+            Value::Object(obj) => obj,
+            _ => panic!("Can only use the . operator on objects."),
+        };
+        let base = match Rc::get_mut(base) {
+            Some(base) => base,
+            None => panic!("Couldn't get the object as mut, it is aliased."),
+        };
+
+        match base.get_mut(&Key::Str(self.prop.clone())) {
+            Some(val) => val,
+            None => panic!("The object does not contain the key {:?}.", self.prop),
+        }
+    }
+}
+
+fn wrap_list_index(len: usize, index: i64) -> usize {
+    if index < 0 {
+        len - ((-index) as usize)
+    } else {
+        index as usize
+    }
+}
+
+impl Location for ast::IndexLocation {
+    fn push_exprs(&self, int: &mut Interpreter) {
+        int.push_eval(self.index.clone().into_eval());
+    }
+
+    fn resolve<'s, 'int>(
+        &'s self,
+        pop_value: &mut dyn FnMut() -> Value,
+        base: &'int Value,
+    ) -> &'int Value {
+        let base = match base {
+            Value::List(obj) => obj,
+            _ => panic!("Can only use the . operator on objects."),
+        };
+
+        let index = pop_value();
+        let index = match index {
+            Value::Int(i) => i,
+            _ => panic!("Can only index a list with int values."),
+        };
+        let index = wrap_list_index(base.len(), index);
+        match base.get(index) {
+            Some(val) => val,
+            None => panic!("The index {} is out of range.", index),
+        }
+    }
+    fn resolve_mut<'s, 'int>(
+        &'s self,
+        pop_value: &mut dyn FnMut() -> Value,
+        base: &'int mut Value,
+    ) -> &'int mut Value {
+        let base = match base {
+            Value::List(obj) => obj,
+            _ => panic!("Can only use the . operator on objects."),
+        };
+        let base = match Rc::get_mut(base) {
+            Some(base) => base,
+            None => panic!("Couldn't get the object as mut, it is aliased."),
+        };
+
+        let index = pop_value();
+        let index = match index {
+            Value::Int(i) => i,
+            _ => panic!("Can only index a list with int values."),
+        };
+        let index = wrap_list_index(base.len(), index);
+        match base.get_mut(index) {
+            Some(val) => val,
+            None => panic!("The index {} is out of range.", index),
+        }
     }
 }
