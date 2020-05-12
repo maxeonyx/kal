@@ -836,11 +836,11 @@ impl Eval for BreakInner {
             SubContextType::Plain => {
                 panic!("Cannot use \"break\" except in a loop or effect handler");
             }
-            SubContextType::Handle(handler, ctx) => {
+            SubContextType::Handle(_handler, _ctx) => {
                 // put value on the value stack in the new (outer) subcontext
                 int.push_value(value);
             }
-            SubContextType::Loop(loop_expr) => {
+            SubContextType::Loop(_loop_expr) => {
                 // put value on the value stack in the new (outer) subcontext
                 int.push_value(value);
             }
@@ -894,7 +894,7 @@ impl Eval for ast::LocationChain {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let self2 = self.clone();
         int.push_eval(Rc::new(Custom::new("LocationChainInner", move |int| {
-            let value = int.resolve_location_chain(&self2).clone();
+            let value = int.resolve_location_chain(&self2);
             int.push_value(value);
         })));
 
