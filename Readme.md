@@ -56,14 +56,14 @@ And my todo list is as follows:
 - [x] Addition, multiplication, subtraction, division
 - [x] Comparisons, boolean operators
 - [x] If expressions
-- [ ] Forever loops
+- [x] Forever loops (`loop` / `break` / `continue`)
 - [ ] Foreach loops
 - [x] Lists
 - [x] Objects
 - [ ] Strings
 - [x] Symbols
-- [x] Effects (`send` / `handle` / `resume`)
-- [ ] Intrinsics (language-defined functions)
+- [x] Effects (`send` / `handle` / `break` / `continue`)
+- [x] Intrinsics (language-defined functions)
 - [x] Mutable let bindings
 - [ ] Mutable assignment operators
 - [x] Mutable object keys and list elements
