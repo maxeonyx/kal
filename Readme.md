@@ -39,6 +39,38 @@ I am drawing inspiration mainly from modern JS and Rust, with some Python and Lu
 
 Unlike all of these languages, I have implemented an effects system - think of it like generalized exceptions, which can be resumed. I am planning to use this to implement a mix of built-in monad instances - namely Async, Try and Yield. (Including any mix of those, making the language suitable for reactive programming). The effects system will also allow fully encapsulating libraries, as they can only talk to the outside world (Files, networks etc.) through "Runtime Requests", a.k.a the IO monad. Effects will implicitly bubble up through the program to the runtime, or can be caught and handled in a custom way.
 
+```rust
+
+// no special function syntax when defining a generator
+fn even_numbers() {
+    let mut count = 0;
+    // easy infinite loop (from Rust)
+    loop {
+        // "yield" here is a parameter, and can be any symbol.
+        // yield is the built-in symbol used by for loops.
+        send yield with count;
+        count += 2;
+    }
+};
+
+for num in even_numbers() {
+    log(num);
+};
+
+// for loops are just syntactic sugar over handle
+handle even_numbers() {
+    yield num {
+        log(num);
+        continue;
+    }
+};
+
+// bare exec of a function (without a handle {}) will send any effects further
+// up the call stack, similar to exceptions in other languages.
+even_numbers();
+
+```
+
 I would ideally like the language to be able to be syntax-agnostic. This would mean providing a stable API for the AST, and having a pluggable parser. A future project might be implementing a visual scripting language on top of that.
 
 I would also like to provide a simple wrapper library that allows users to statically "compile" their kal code. What this would mean is producing a single executable which bundles the kal interpreter with all of the users code (via `include_str!()` or similar). This executable therefore has very few runtime dependencies like a normal rust binary, and can be distributed more easily.
