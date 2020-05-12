@@ -217,36 +217,46 @@ impl Eval for ast::IfExpression {
     }
 }
 
+// Infinite looping part of the loop.
 #[derive(Debug)]
-pub struct LoopInner {
-    first: bool,
+pub struct LoopBody {
     body: Rc<ast::Block>,
 }
-impl Eval for LoopInner {
-    fn eval(mut self: Rc<Self>, int: &mut Interpreter) {
-        let first = self.first;
-        if first {
-            Rc::get_mut(&mut self)
-                .expect("Implementation Error - could not get LoopInner as mutable.")
-                .first = false;
-            int.push_sub_context(SubContext::new(SubContextType::Loop(self.clone())));
-        } else {
-            // discard the value from the previous execution of the loop body, as it can't be used.
-            int.pop_value();
-        }
+impl Eval for LoopBody {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let body = self.body.clone();
-        int.push_eval(self);
+        int.push_eval(self); // execute the LoopBody again afterwards (endless loop)
+        int.push_eval(Rc::new(Custom::new("IgnoreValue", |int| {
+            int.pop_value();
+        })));
         int.push_eval(body);
     }
     fn short_name(&self) -> &str {
-        "LoopInner"
+        "LoopBody"
     }
 }
 
+// Establishes a loop sub-context. Runs once and then after every "continue".
+#[derive(Debug)]
+pub struct LoopContext {
+    body: Rc<ast::Block>,
+}
+impl Eval for LoopContext {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_sub_context(SubContext::new(SubContextType::Loop(self.clone())));
+        int.push_eval(Rc::new(LoopBody {
+            body: self.body.clone(),
+        }));
+    }
+    fn short_name(&self) -> &str {
+        "LoopContext"
+    }
+}
+
+// Starts a loop. Runs once.
 impl Eval for ast::LoopExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        int.push_eval(Rc::new(LoopInner {
-            first: true,
+        int.push_eval(Rc::new(LoopContext {
             body: self.body.clone(),
         }));
     }
@@ -784,13 +794,14 @@ impl Eval for ContinueInner {
         let value = int.pop_value();
 
         // discard current context (either handle match arm or loop iteration) as we do not want to run any more code after the Continue.
+        // this wipes the eval_stack and value_stack.
         let SubContext { typ, .. } = int.pop_sub_context();
         match typ {
             SubContextType::Plain => {
                 panic!("Cannot use \"continue\" except in a loop or effect handler")
             }
             SubContextType::Handle(handler, ctx) => {
-                // re-establish handler
+                // re-establish fresh handler
                 int.push_eval(handler);
 
                 // switch to the context from the handled continuation.
@@ -799,8 +810,11 @@ impl Eval for ContinueInner {
                 // put value on the value stack (as if it was the result of the "send" that created the continuation)
                 int.push_value(value)
             }
-            SubContextType::Loop(loop_expr) => {
-                int.push_eval(loop_expr);
+            SubContextType::Loop(loop_ctx) => {
+                // re-establish fresh loop context
+                int.push_eval(loop_ctx);
+
+                // we ignore the value from the continue.
             }
         }
     }

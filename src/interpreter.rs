@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::eval::Eval;
 use crate::{
-    eval_impls::{Handler, WrapperFunction, LoopInner},
+    eval_impls::{Handler, WrapperFunction, LoopContext},
     intrinsics::{intrinsic_scope, Intrinsic},
 };
 use ast::{Expression, Function, LocationChain};
@@ -149,7 +149,7 @@ impl Scope {
 pub enum SubContextType {
     Plain,
     Handle(Rc<Handler>, Box<FunctionContext>),
-    Loop(Rc<LoopInner>),
+    Loop(Rc<LoopContext>),
 }
 
 #[derive(Debug)]

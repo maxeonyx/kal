@@ -197,6 +197,8 @@ test! { loop_break_value, Value::Int(77) }
 
 test! { loop_yield, Value::Int(8) }
 
+test! { loop_continue, Value::Int(5) }
+
 test! { loop_collect, Value::List(Rc::new(vec![Value::Int(0), Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4)])) }
 
 test! { expression_as_statement, Value::Int(2) }

@@ -1,0 +1,9 @@
+let count = 0;
+loop {
+    if count < 5 {
+        count = count + 1;
+        continue;
+    } else {
+        break with count;
+    }
+}
