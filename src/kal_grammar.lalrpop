@@ -156,6 +156,7 @@ NegativeExpression: Rc<dyn Expression> = {
 NormalExpression: Rc<dyn Expression> = {
     <l:Literal> => l,
     <i:IfExpression> => i,
+    <loop_expr:LoopExpression> => loop_expr,
     SimpleExpression,
 }
 
@@ -236,6 +237,12 @@ ElseIf: IfPart = {
 
 ElseBody: Rc<Block> = {
     "else" <b:Block> => b,
+}
+
+LoopExpression: Rc<LoopExpression> = {
+    "loop" <body:Block> => Rc::new(LoopExpression {
+        body,
+    }),
 }
 
 FunctionInvocation: Rc<FunctionInvocation> = {

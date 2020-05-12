@@ -190,3 +190,11 @@ fn size_of_value() {
     // 8 bytes or smaller for performance
     assert_eq!(std::mem::size_of::<Value>(), 16);
 }
+
+test! { loop_break, Value::Null }
+
+test! { loop_break_value, Value::Int(77) }
+
+test! { loop_yield, Value::Int(5) }
+
+test! { expression_as_statement, Value::Int(2) }

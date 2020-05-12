@@ -216,6 +216,45 @@ impl Eval for ast::IfExpression {
         "If"
     }
 }
+
+#[derive(Debug)]
+pub struct LoopInner {
+    first: bool,
+    body: Rc<ast::Block>,
+}
+impl Eval for LoopInner {
+    fn eval(mut self: Rc<Self>, int: &mut Interpreter) {
+        let first = self.first;
+        if first {
+            Rc::get_mut(&mut self)
+                .expect("Implementation Error - could not get LoopInner as mutable.")
+                .first = false;
+            int.push_sub_context(SubContext::new(SubContextType::Loop(self.clone())));
+        } else {
+            // discard the value from the previous execution of the loop body, as it can't be used.
+            int.pop_value();
+        }
+        let body = self.body.clone();
+        int.push_eval(self);
+        int.push_eval(body);
+    }
+    fn short_name(&self) -> &str {
+        "LoopInner"
+    }
+}
+
+impl Eval for ast::LoopExpression {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_eval(Rc::new(LoopInner {
+            first: true,
+            body: self.body.clone(),
+        }));
+    }
+    fn short_name(&self) -> &str {
+        "Loop"
+    }
+}
+
 impl Eval for ast::IndexExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         int.push_eval(Rc::new(Custom::new("IndexInner", |int| {
@@ -397,6 +436,18 @@ impl Eval for ast::Block {
     }
     fn short_name(&self) -> &str {
         "Block"
+    }
+}
+
+impl Eval for ast::ExpressionStatement {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_eval(Rc::new(Custom::new("IgnoreValue", |int| {
+            int.pop_value();
+        })));
+        int.push_eval(self.expr.clone().into_eval());
+    }
+    fn short_name(&self) -> &str {
+        "ExpressionStatement"
     }
 }
 
@@ -743,6 +794,9 @@ impl Eval for ResumeInner {
 
                 // put value on the value stack (as if it was the result of the "send" that created the continuation)
                 int.push_value(value)
+            }
+            SubContextType::Loop(loop_expr) => {
+                int.push_eval(loop_expr);
             }
         }
     }

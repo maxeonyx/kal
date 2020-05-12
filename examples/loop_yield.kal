@@ -1,0 +1,18 @@
+let yield = symbol();
+let numbers = fn() {
+    let a = 0;
+    loop {
+        send yield a;
+        a = a + 1;
+    }
+};
+let list = [];
+handle numbers() {
+    yield num {
+        if num < 10 {
+            list = [...list, num];
+            resume null;
+        }
+    }
+};
+list[5]
