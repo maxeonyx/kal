@@ -1,10 +1,10 @@
 let yield = symbol();
 let gen = fn() {
-    (send yield 5) * 2
+    (send yield with 5) * 2
 };
 let passthrough = fn() {
     handle gen() { }
 };
 handle passthrough() {
-    yield x { resume x * 2 }
+    yield x { continue with x * 2 }
 }

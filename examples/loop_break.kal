@@ -1,0 +1,4 @@
+loop {
+    break;
+};
+null

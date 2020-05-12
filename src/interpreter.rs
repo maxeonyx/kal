@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::eval::Eval;
 use crate::{
-    eval_impls::{Handler, WrapperFunction},
+    eval_impls::{Handler, WrapperFunction, LoopInner},
     intrinsics::{intrinsic_scope, Intrinsic},
 };
 use ast::{Expression, Function, LocationChain};
@@ -149,6 +149,7 @@ impl Scope {
 pub enum SubContextType {
     Plain,
     Handle(Rc<Handler>, Box<FunctionContext>),
+    Loop(Rc<LoopInner>),
 }
 
 #[derive(Debug)]
@@ -266,8 +267,9 @@ impl Interpreter {
                     statement.eval(self);
 
                     if self.current_eval_stack().is_empty() {
-                        debug_assert!(
-                            self.current_value_stack().len() == 1,
+                        debug_assert_eq!(
+                            self.current_value_stack().len(),
+                            1,
                             "There should only be one value left on the stack."
                         );
                         break self.pop_value();
@@ -403,7 +405,7 @@ impl Interpreter {
         let mut pop_value = || value_stack.pop().unwrap();
 
         let val = match &location_chain.base {
-            ast::LocationChainBase::Ident(ident) => scope.resolve_binding(&ident).unwrap().clone(),
+            ast::LocationChainBase::Ident(ident) => scope.resolve_binding(&ident).unwrap_or_else(|| panic!("Could not resolve name {:?}.", ident)).clone(),
             ast::LocationChainBase::Expression(_) => pop_value(),
         };
         let mut val_ref = &val;

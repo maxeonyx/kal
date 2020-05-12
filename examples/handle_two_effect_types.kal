@@ -1,12 +1,12 @@
 let effect_a = symbol();
 let effect_b = symbol();
 let do_thing = fn() {
-    let stuff = send effect_a null;
-    send effect_b stuff * stuff;
+    let stuff = send effect_a;
+    send effect_b with stuff * stuff;
 };
 handle do_thing() {
     effect_a _ {
-        resume 5;
+        continue with 5;
     },
     effect_b val {
         val

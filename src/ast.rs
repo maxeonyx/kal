@@ -5,16 +5,24 @@ pub trait Statement: Eval + IntoEval<dyn Eval> {}
 
 impl<T: Expression> Statement for T {}
 
+#[derive(Debug)]
+pub struct ExpressionStatement {
+    pub expr: Rc<dyn Statement>,
+}
+impl Statement for ExpressionStatement {}
+
 pub trait IntoStatement<T: ?Sized> {
     fn into_statement(self: Rc<Self>) -> Rc<T>;
 }
-impl<'a, T: Statement + 'a> IntoStatement<dyn Statement + 'a> for T {
-    fn into_statement(self: Rc<Self>) -> Rc<dyn Statement + 'a> {
-        self
+impl<'a, T: Statement + 'static> IntoStatement<dyn Statement + 'static> for T {
+    fn into_statement(self: Rc<Self>) -> Rc<dyn Statement + 'static> {
+        Rc::new(ExpressionStatement {
+            expr: self as Rc<dyn Statement>,
+        })
     }
 }
 
-pub trait Expression: Statement + IntoStatement<dyn Statement> {}
+pub trait Expression: Eval + IntoEval<dyn Eval> + Statement + IntoStatement<dyn Statement> {}
 
 #[derive(Debug)]
 pub struct Null;
@@ -130,6 +138,12 @@ pub struct IfPart {
     pub body: Rc<Block>,
 }
 
+#[derive(Debug, Clone)]
+pub struct LoopExpression {
+    pub body: Rc<Block>,
+}
+impl Expression for LoopExpression {}
+
 #[derive(Debug)]
 pub struct Function {
     pub body: Rc<Block>,
@@ -186,15 +200,21 @@ pub struct HandleMatch {
 #[derive(Debug)]
 pub struct SendExpr {
     pub symbol: String,
-    pub expr: Rc<dyn Expression>,
+    pub expr: Option<Rc<dyn Expression>>,
 }
 impl Expression for SendExpr {}
 
 #[derive(Debug)]
-pub struct Resume {
-    pub expr: Rc<dyn Expression>,
+pub struct Continue {
+    pub expr: Option<Rc<dyn Expression>>,
 }
-impl Expression for Resume {}
+impl Expression for Continue {}
+
+#[derive(Debug)]
+pub struct Break {
+    pub expr: Option<Rc<dyn Expression>>,
+}
+impl Expression for Break {}
 
 #[derive(Debug)]
 pub struct LocationChain {

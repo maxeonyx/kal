@@ -1,12 +1,12 @@
 let request = symbol();
 let ask = fn() {
-    send request null
+    send request
 };
 let middle = fn() {
     handle ask() { }
 };
 handle middle() {
     request _ {
-        resume 55
+        continue with 55
     }
 }
