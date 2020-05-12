@@ -1,0 +1,11 @@
+let list = [];
+let count = 0;
+loop {
+    if count < 5 {
+        list = [...list, count];
+        count = count + 1;
+    } else {
+        break;
+    }
+};
+list

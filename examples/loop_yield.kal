@@ -2,7 +2,7 @@ let yield = symbol();
 let numbers = fn() {
     let a = 0;
     loop {
-        send yield a;
+        send yield with a;
         a = a + 1;
     }
 };
@@ -11,8 +11,8 @@ handle numbers() {
     yield num {
         if num < 10 {
             list = [...list, num];
-            resume null;
+            continue;
         }
     }
 };
-list[5]
+list[8]

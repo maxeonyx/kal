@@ -61,12 +61,13 @@ Statement: Rc<dyn Statement> = {
     <e:Expression> => e.into_statement(),
 }
 
-// Function literal is highest operator precedence.
+// Function literal is highest operator precedence. Everything after fn () is considered part of the
+// function literal. Break, continue and send also capture all of the following expression.
 Expression: Rc<dyn Expression> = {
-    <f:Function> => f,
-    <s:SendExpr> => s,
-    <r:Resume> => r,
-    <h:Handle> => h,
+    <function:Function> => function,
+    <send:SendExpr> => send,
+    <continue_expr:Continue> => continue_expr,
+    <break_expr:Break> => break_expr,
     BooleanExpression,
 }
 
@@ -154,24 +155,28 @@ NegativeExpression: Rc<dyn Expression> = {
 }
 
 NormalExpression: Rc<dyn Expression> = {
-    <l:Literal> => l,
-    <i:IfExpression> => i,
+    <literal:Literal> => literal,
+    <if_expr:IfExpression> => if_expr,
+    <handle:Handle> => handle,
     <loop_expr:LoopExpression> => loop_expr,
     SimpleExpression,
 }
 
 SimpleExpression: Rc<dyn Expression> = {
+    // <continue_expr:ContinueLonely> => continue_expr,
+    // <send_expr:SendExprLonely> => send_expr,
+    // <break_expr:BreakLonely> => break_expr,
     <location:IdentLocation> => Rc::new(location),
     <location:DotLocation> => Rc::new(location),
     <location:IndexLocation> => Rc::new(location),
     <location:DotLocationExpression> => Rc::new(location),
     <location:IndexLocationExpression> => Rc::new(location),
-    <fi:FunctionInvocation> => fi,
+    <func_invo:FunctionInvocation> => func_invo,
     ParenExpression,
 }
 
 LocationBaseExpression: Rc<dyn Expression> = {
-    <fi:FunctionInvocation> => fi,
+    <func_invo:FunctionInvocation> => func_invo,
     ParenExpression,
 }
 
@@ -318,16 +323,25 @@ HandleMatch: HandleMatch = {
 }
 
 SendExpr: Rc<SendExpr> = {
-    "send" <symbol:Ident> <expr:Expression> =>
+    // "with" is not just aesthetic here, it solves a grammar ambiguity.
+    // It might be solvable without "with", I didn't try very hard...
+    "send" <symbol:Ident> <expr:("with" <Expression>)?> =>
         Rc::new(SendExpr {
             symbol,
             expr,
         }),
 }
 
-Resume: Rc<Resume> = {
-    "resume" <expr:Expression> =>
-        Rc::new(Resume {
+Continue: Rc<Continue> = {
+    "continue" <expr:("with" <Expression>)?> =>
+        Rc::new(Continue {
+            expr,
+        }),
+}
+
+Break: Rc<Break> = {
+    "break" <expr:("with" <Expression>)?> =>
+        Rc::new(Break {
             expr,
         }),
 }

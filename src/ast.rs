@@ -16,7 +16,9 @@ pub trait IntoStatement<T: ?Sized> {
 }
 impl<'a, T: Statement + 'static> IntoStatement<dyn Statement + 'static> for T {
     fn into_statement(self: Rc<Self>) -> Rc<dyn Statement + 'static> {
-        Rc::new(ExpressionStatement { expr: self as Rc<dyn Statement> })
+        Rc::new(ExpressionStatement {
+            expr: self as Rc<dyn Statement>,
+        })
     }
 }
 
@@ -198,15 +200,21 @@ pub struct HandleMatch {
 #[derive(Debug)]
 pub struct SendExpr {
     pub symbol: String,
-    pub expr: Rc<dyn Expression>,
+    pub expr: Option<Rc<dyn Expression>>,
 }
 impl Expression for SendExpr {}
 
 #[derive(Debug)]
-pub struct Resume {
-    pub expr: Rc<dyn Expression>,
+pub struct Continue {
+    pub expr: Option<Rc<dyn Expression>>,
 }
-impl Expression for Resume {}
+impl Expression for Continue {}
+
+#[derive(Debug)]
+pub struct Break {
+    pub expr: Option<Rc<dyn Expression>>,
+}
+impl Expression for Break {}
 
 #[derive(Debug)]
 pub struct LocationChain {

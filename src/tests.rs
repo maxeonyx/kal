@@ -153,15 +153,15 @@ test! { mut_object_access, Value::Bool(true) }
 
 test! { mut_deep, Value::Int(3) }
 
-test! { handle_resume, Value::Int(9) }
+test! { handle_continue, Value::Int(9) }
 
-test! { handle_multiple_resume, Value::Int(81) }
+test! { handle_multiple_continue, Value::Int(81) }
 
-test! { handle_no_resume, Value::Int(3) }
+test! { handle_no_continue, Value::Int(3) }
 
 test! { handle_nested, Value::Int(55) }
 
-test! { handle_nested_resume, Value::Int(20) }
+test! { handle_nested_continue, Value::Int(20) }
 
 test! { handle_two_effect_types, Value::Int(25) }
 
@@ -195,6 +195,8 @@ test! { loop_break, Value::Null }
 
 test! { loop_break_value, Value::Int(77) }
 
-test! { loop_yield, Value::Int(5) }
+test! { loop_yield, Value::Int(8) }
+
+test! { loop_collect, Value::List(Rc::new(vec![Value::Int(0), Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4)])) }
 
 test! { expression_as_statement, Value::Int(2) }

@@ -1,2 +1,2 @@
 let yield = symbol();
-send yield 4
+send yield with 4

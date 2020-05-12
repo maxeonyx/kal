@@ -679,7 +679,7 @@ impl Eval for Handler {
         } else {
             // if there is no match arm that handles this effect, establish a passthrough.
             // this means sending the effect upwards, then resuming with whatever value we get back
-            int.push_eval(Rc::new(ResumeInner));
+            int.push_eval(Rc::new(ContinueInner));
             int.push_eval(Rc::new(SendInner));
             int.push_value(value);
             int.push_value(Value::Symbol(symbol));
@@ -766,7 +766,11 @@ impl Eval for ast::SendExpr {
 
         int.push_eval(Rc::new(self.symbol.clone()));
 
-        int.push_eval(self.expr.clone().into_eval());
+        if let Some(expr) = &self.expr {
+            int.push_eval(expr.clone().into_eval());
+        } else {
+            int.push_value(Value::Null);
+        }
     }
     fn short_name(&self) -> &str {
         "Send"
@@ -774,16 +778,16 @@ impl Eval for ast::SendExpr {
 }
 
 #[derive(Debug)]
-pub struct ResumeInner;
-impl Eval for ResumeInner {
+pub struct ContinueInner;
+impl Eval for ContinueInner {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let value = int.pop_value();
 
-        // discard current context (either handle match arm or loop iteration) as we do not want to run any more code after the resume.
+        // discard current context (either handle match arm or loop iteration) as we do not want to run any more code after the Continue.
         let SubContext { typ, .. } = int.pop_sub_context();
         match typ {
             SubContextType::Plain => {
-                panic!("Cannot use \"resume\" except in a loop or effect handler")
+                panic!("Cannot use \"continue\" except in a loop or effect handler")
             }
             SubContextType::Handle(handler, ctx) => {
                 // re-establish handler
@@ -801,18 +805,64 @@ impl Eval for ResumeInner {
         }
     }
     fn short_name(&self) -> &str {
-        "ResumeInner"
+        "ContinueInner"
     }
 }
 
-impl Eval for ast::Resume {
+impl Eval for ast::Continue {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        int.push_eval(Rc::new(ResumeInner));
+        int.push_eval(Rc::new(ContinueInner));
 
-        int.push_eval(self.expr.clone().into_eval())
+        if let Some(expr) = &self.expr {
+            int.push_eval(expr.clone().into_eval());
+        } else {
+            int.push_value(Value::Null);
+        }
     }
     fn short_name(&self) -> &str {
-        "Resume"
+        "Continue"
+    }
+}
+
+#[derive(Debug)]
+pub struct BreakInner;
+impl Eval for BreakInner {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let value = int.pop_value();
+
+        // discard current context (either handle match arm or loop iteration) as we do not want to run any more code after the break.
+        let SubContext { typ, .. } = int.pop_sub_context();
+        match typ {
+            SubContextType::Plain => {
+                panic!("Cannot use \"break\" except in a loop or effect handler");
+            }
+            SubContextType::Handle(handler, ctx) => {
+                // put value on the value stack in the new (outer) subcontext
+                int.push_value(value);
+            }
+            SubContextType::Loop(loop_expr) => {
+                // put value on the value stack in the new (outer) subcontext
+                int.push_value(value);
+            }
+        }
+    }
+    fn short_name(&self) -> &str {
+        "BreakInner"
+    }
+}
+
+impl Eval for ast::Break {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_eval(Rc::new(BreakInner));
+
+        if let Some(expr) = &self.expr {
+            int.push_eval(expr.clone().into_eval());
+        } else {
+            int.push_value(Value::Null);
+        }
+    }
+    fn short_name(&self) -> &str {
+        "Break"
     }
 }
 

@@ -1,6 +1,6 @@
 let yield = symbol();
 let gen = fn() {
-    send yield 3;
+    send yield with 3;
     9
 };
 handle gen() {
