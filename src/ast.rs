@@ -167,9 +167,15 @@ impl Expression for FunctionInvocation {}
 
 #[derive(Debug)]
 pub struct Object {
-    pub pairs: Vec<(String, Rc<dyn Expression>)>,
+    pub elems: Vec<ObjectElem>,
 }
 impl Expression for Object {}
+
+#[derive(Debug)]
+pub enum ObjectElem {
+    Kv(String, Rc<dyn Expression>),
+    Spread(Rc<dyn Expression>),
+}
 
 #[derive(Debug)]
 pub struct List {

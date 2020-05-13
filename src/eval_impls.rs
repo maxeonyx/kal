@@ -42,17 +42,38 @@ impl Eval for ast::Object {
         int.push_eval(Rc::new(Custom::new("ObjectInner", move |int| {
             let mut map = HashMap::new();
 
-            for pair in self2.pairs.iter() {
-                let value = int.pop_value();
+            for elem in self2.elems.iter() {
 
-                map.insert(Key::Str(pair.0.clone()), value);
+                match elem {
+                    ast::ObjectElem::Kv(name, _) => {
+                        let value = int.pop_value();
+        
+                        map.insert(Key::Str(name.clone()), value);
+                    }
+                    ast::ObjectElem::Spread(_) => {
+                        let value = int.pop_value();
+                        let value = match value {
+                            Value::Object(obj) => obj,
+                            _ => panic!("Can only use the ... operator in an object literal on an object."),
+                        };
+
+                        map.extend(value.iter().map(|(key, val)| (key.clone(), val.clone())));
+                    }
+                }
             }
 
             int.push_value(Value::Object(Rc::new(map)));
         })));
 
-        for pair in self.pairs.iter() {
-            int.push_eval(pair.1.clone().into_eval());
+        for elem in self.elems.iter() {
+            match elem {
+                ast::ObjectElem::Kv(_, expr) => {
+                    int.push_eval(expr.clone().into_eval());
+                }
+                ast::ObjectElem::Spread(expr) => {
+                    int.push_eval(expr.clone().into_eval());
+                }
+            }
         }
     }
     fn short_name(&self) -> &str {

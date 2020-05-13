@@ -281,14 +281,15 @@ ListElem: ListElem = {
 }
 
 Object: Rc<Object> = {
-    "{" <pairs:Comma<ObjectKV>> "}" =>
+    "{" <elems:Comma<ObjectElem>> "}" =>
         Rc::new(Object {
-            pairs,
+            elems,
         }),
 }
 
-ObjectKV: (String, Rc<dyn Expression>) = {
-    <i:Ident> ":" <e:Expression> => (i, e),
+ObjectElem: ObjectElem = {
+    <i:Ident> ":" <e:Expression> => ObjectElem::Kv(i, e),
+    "..." <e:SimpleExpression> => ObjectElem::Spread(e),
 }
 
 Ident: String = {

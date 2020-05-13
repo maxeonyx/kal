@@ -99,6 +99,8 @@ test! { object_access_fn, Value::Int(491) }
 
 test! { object_nested, Value::Int(22) }
 
+test! { object_spread, Value::List(Rc::new(vec![Value::Int(15), Value::Int(20), Value::Int(99)])) }
+
 test! { boolean_and, Value::Bool(false) }
 
 test! { boolean_or, Value::Bool(true) }

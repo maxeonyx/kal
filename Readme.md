@@ -102,7 +102,7 @@ And my todo list is as follows:
 - [ ] Import / export
 - [ ] Print
 - [x] List spread operator
-- [ ] Object spread operator
+- [x] Object spread operator
 - [ ] Function param spread (in / out)
 - [ ] Proper error support for type errors.
 - [ ] Proper error support for syntax errors.

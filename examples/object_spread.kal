@@ -1,0 +1,10 @@
+let first = {
+    bob: 99,
+    jimmy: 15,
+};
+let second = {
+    sam: 20,
+    jimmy: 14,
+    ...first,
+};
+[second.jimmy, second.sam, second.bob]
