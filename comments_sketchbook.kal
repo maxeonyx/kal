@@ -1,0 +1,25 @@
+#! is allowed because # is a normal comment
+
+# normal comment (hidden in docs)
+
+#*
+block comment
+*#
+
+#*
+#*
+nested block comment
+*#
+*#
+
+## doc comments are like markdown but the headers are changed.
+##*
+block doc comment
+*##
+
+### sub-heading doc comment
+#### heading
+##### page title
+###### sub-section
+####### section
+######## library title
