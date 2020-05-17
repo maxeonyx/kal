@@ -8,6 +8,8 @@ use super::{
 use crate::{
     ast,
     eval::{Custom, Location},
+    interpreter::symbols,
+    interpreter::symbols::error_codes,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -507,21 +509,75 @@ impl Eval for ast::LetStatement {
     }
 }
 
+#[derive(Debug)]
+struct Error {
+    code: u64,
+}
+impl Error {
+    pub fn new(code: u64) -> Rc<Self> {
+        Rc::new(Self {
+            code,
+        })
+    }
+}
+impl Eval for Error {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        int.push_value(Value::Object(Rc::new({
+            let mut map = HashMap::new();
+            map.insert(Key::Str("code".to_string()), Value::Symbol(self.code));
+            map
+        })));
+
+        int.push_value(Value::Symbol(symbols::ERROR));
+        
+        int.push_eval(Rc::new(SendInner));
+    }
+    fn short_name(&self) -> &str {
+        "Error"
+    }
+}
+
+#[derive(Debug)]
+struct TypecheckInt {
+    // error loop detection
+    first: bool,
+}
+impl TypecheckInt {
+    fn new() -> Rc<Self> {
+        Rc::new(Self { first: true })
+    }
+}
+impl Eval for TypecheckInt {
+    fn eval(mut self: Rc<Self>, int: &mut Interpreter) {
+        let value = int.pop_value();
+        match value {
+            Value::Int(_) => int.push_value(value),
+            _ => {
+                match self.first {
+                    true => {
+                        Rc::get_mut(&mut self).expect("Implementation error - could not get_mut a TypecheckInt").first = false;
+                        int.push_eval(self);
+                        int.push_eval(Error::new(error_codes::TYPE_ERROR_INT));
+                    }
+                    false => {
+                        int.push_eval(self);
+                        int.push_eval(Error::new(error_codes::ERROR_LOOP));
+                    }
+                }
+            }
+        }
+    }
+    fn short_name(&self) -> &str {
+        "TypecheckInt"
+    }
+}
+
 impl Eval for ast::NumericExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let operator = self.operator;
         int.push_eval(Rc::new(Custom::new("NumericInner", move |int| {
-            let left = int.pop_value();
-            let right = int.pop_value();
-
-            let left = match left {
-                Value::Int(i) => i,
-                _ => panic!("Cant add, left side not an Int."),
-            };
-            let right = match right {
-                Value::Int(i) => i,
-                _ => panic!("Cant add, right side not an Int."),
-            };
+            let left = int.pop_value().unwrap_int();
+            let right = int.pop_value().unwrap_int();
             use ast::NumericOperator::*;
             let val = match operator {
                 Add => Value::Int(left + right),
@@ -531,7 +587,9 @@ impl Eval for ast::NumericExpression {
             };
             int.push_value(val)
         })));
+        int.push_eval(TypecheckInt::new());
         int.push_eval(self.left.clone().into_eval());
+        int.push_eval(TypecheckInt::new());
         int.push_eval(self.right.clone().into_eval());
     }
     fn short_name(&self) -> &str {

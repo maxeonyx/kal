@@ -4,9 +4,19 @@ use std::{collections::HashMap, rc::Rc};
 use crate::eval::Eval;
 use crate::{
     eval_impls::{Handler, WrapperFunction, LoopContext},
-    intrinsics::{intrinsic_scope, Intrinsic},
+    intrinsics::{self, Intrinsic},
+    core,
 };
 use ast::{Expression, Function, LocationChain};
+
+pub mod symbols {
+    pub const ERROR: u64 = u64::MAX;
+    pub mod error_codes {
+        const ERROR_CODE_START: u64 = u64::MAX - 10000;
+        pub const TYPE_ERROR_INT: u64 = ERROR_CODE_START - 1;
+        pub const ERROR_LOOP: u64 = ERROR_CODE_START - 2;
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Key {
@@ -28,6 +38,27 @@ pub enum Value {
     Symbol(u64),
     Effect(Rc<Effect>),
     Intrinsic(Intrinsic),
+}
+
+impl Value {
+    pub fn unwrap_object(&self) -> Rc<HashMap<Key, Value>> {
+        match self {
+            Value::Object(val) => val.clone(),
+            _ => panic!("Implementation error - could not unwrap, Value was not an Object."),
+        }
+    }
+    pub fn unwrap_symbol(&self) -> u64 {
+        match self {
+            Value::Symbol(val) => *val,
+            _ => panic!("Implementation error - could not unwrap, Value was not a Symbol."),
+        }
+    }
+    pub fn unwrap_int(&self) -> i64 {
+        match self {
+            Value::Int(val) => *val,
+            _ => panic!("Implementation error - could not unwrap, Value was not an Int."),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -193,7 +224,8 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         let sym_gen = SymbolGenerator::new();
-        let scope = intrinsic_scope(None);
+        let scope = intrinsics::scope(None);
+        let scope = core::scope(Some(scope));
         Interpreter {
             sym_gen,
             fn_context_stack: vec![FunctionContext::new(scope)],

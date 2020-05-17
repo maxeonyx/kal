@@ -1,4 +1,4 @@
-use crate::interpreter::{Interpreter, Key, Value};
+use crate::interpreter::{symbols, symbols::error_codes, Interpreter, Key, Value};
 use std::{collections::HashMap, rc::Rc};
 
 #[allow(dead_code)]
@@ -14,7 +14,18 @@ fn eval_file(path: &str) -> Value {
 }
 
 macro_rules! test {
-    {release_mode_only, $test_name:ident, $expected_val:expr } => {
+    {$test_name:ident, $expected_val:expr} => {
+        #[test]
+        pub fn $test_name() {
+            let val = eval_file(&format!("examples/{}.kal", stringify!($test_name)));
+            let expected = $expected_val;
+            assert!(val == expected, format!("Assertion failed: got {:?}, expected {:?}.", val, expected));
+        }
+    };
+}
+
+macro_rules! test_release {
+    {$test_name:ident, $expected_val:expr } => {
         #[cfg(not(debug_assertions))]
         #[test]
         pub fn $test_name() {
@@ -23,12 +34,14 @@ macro_rules! test {
             assert!(val == expected, format!("Assertion failed: got {:?}, expected {:?}.", val, expected));
         }
     };
+}
+
+macro_rules! test_error {
     {$test_name:ident, $expected_val:expr} => {
         #[test]
         pub fn $test_name() {
             let val = eval_file(&format!("examples/{}.kal", stringify!($test_name)));
-            let expected = $expected_val;
-            assert!(val == expected, format!("Assertion failed: got {:?}, expected {:?}.", val, expected));
+            assert_error(val, $expected_val);
         }
     };
 }
@@ -79,7 +92,7 @@ test! { comparison_true, Value::Bool(true) }
 
 test! { comparison_false, Value::Bool(false) }
 
-test! { release_mode_only, big_recursive, Value::Int(1_000_000) }
+test_release! { big_recursive, Value::Int(1_000_000) }
 
 test! { object_empty, Value::Object(Rc::new(HashMap::new())) }
 
@@ -204,3 +217,20 @@ test! { loop_continue, Value::Int(5) }
 test! { loop_collect, Value::List(Rc::new(vec![Value::Int(0), Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4)])) }
 
 test! { expression_as_statement, Value::Int(2) }
+
+fn assert_error(val: Value, code: u64) {
+    match val {
+        Value::Effect(effect) => {
+            assert_eq!(effect.symbol, symbols::ERROR);
+            assert_eq!(effect.value.unwrap_object().get(&Key::Str("code".into())).unwrap().unwrap_symbol(), code);
+        },
+        _ => panic!("Expected an error with code {}, got something else.", code),
+    }
+}
+
+
+test_error! { error_addition, error_codes::TYPE_ERROR_INT }
+
+test! { error_addition_continue, Value::Int(7) }
+
+test_error! { error_addition_continue_loop, error_codes::ERROR_LOOP }

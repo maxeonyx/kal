@@ -1,0 +1,10 @@
+let error_fn = fn () 3 + [];
+handle error_fn() {
+    error e {
+        if e.code == errors.type_error_int {
+            continue with [];
+        };
+        
+        send error with e;
+    }
+}
