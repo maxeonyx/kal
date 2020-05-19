@@ -537,41 +537,6 @@ impl Eval for Error {
     }
 }
 
-#[derive(Debug)]
-struct TypecheckInt {
-    // error loop detection
-    first: bool,
-}
-impl TypecheckInt {
-    fn new() -> Rc<Self> {
-        Rc::new(Self { first: true })
-    }
-}
-impl Eval for TypecheckInt {
-    fn eval(mut self: Rc<Self>, int: &mut Interpreter) {
-        let value = int.pop_value();
-        match value {
-            Value::Int(_) => int.push_value(value),
-            _ => {
-                match self.first {
-                    true => {
-                        Rc::get_mut(&mut self).expect("Implementation error - could not get_mut a TypecheckInt").first = false;
-                        int.push_eval(self);
-                        int.push_eval(Error::new(error_codes::TYPE_ERROR_INT));
-                    }
-                    false => {
-                        int.push_eval(self);
-                        int.push_eval(Error::new(error_codes::ERROR_LOOP));
-                    }
-                }
-            }
-        }
-    }
-    fn short_name(&self) -> &str {
-        "TypecheckInt"
-    }
-}
-
 impl Eval for ast::NumericExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let operator = self.operator;
@@ -639,18 +604,12 @@ impl Eval for ast::BooleanExpression {
 impl Eval for ast::NegativeExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         int.push_eval(Rc::new(Custom::new("NegativeInner", move |int| {
-            let val = int.pop_value();
-            let val = match val {
-                Value::Int(i) => i,
-                _ => panic!("Cant negate, val not an Int."),
-            };
-            if val == std::i64::MIN {
-                // TODO: BigInteger wrapping
-                panic!("Can't negate i64::min.");
-            }
+            let val = int.pop_value().unwrap_int();
             let val = -val;
             int.push_value(Value::Int(val))
         })));
+        int.push_eval(IntMinCheck::new());
+        int.push_eval(TypecheckInt::new());
         int.push_eval(self.expr.clone().into_eval());
     }
     fn short_name(&self) -> &str {
@@ -1100,5 +1059,76 @@ impl Location for ast::IndexLocation {
             Some(val) => val,
             None => panic!("The index {} is out of range.", index),
         }
+    }
+}
+
+
+
+#[derive(Debug)]
+struct TypecheckInt {
+    // error loop detection
+    first: bool,
+}
+impl TypecheckInt {
+    fn new() -> Rc<Self> {
+        Rc::new(Self { first: true })
+    }
+}
+impl Eval for TypecheckInt {
+    fn eval(mut self: Rc<Self>, int: &mut Interpreter) {
+        let value = int.pop_value();
+        match value {
+            Value::Int(_) => int.push_value(value),
+            _ => {
+                match self.first {
+                    true => {
+                        Rc::get_mut(&mut self).expect("Implementation error - could not get_mut a TypecheckInt").first = false;
+                        int.push_eval(self);
+                        int.push_eval(Error::new(error_codes::TYPE_ERROR_INT));
+                    }
+                    false => {
+                        int.push_eval(self);
+                        int.push_eval(Error::new(error_codes::ERROR_LOOP));
+                    }
+                }
+            }
+        }
+    }
+    fn short_name(&self) -> &str {
+        "TypecheckInt"
+    }
+}
+
+#[derive(Debug)]
+struct IntMinCheck {
+    // error loop detection
+    first: bool,
+}
+impl IntMinCheck {
+    fn new() -> Rc<Self> {
+        Rc::new(Self { first: true })
+    }
+}
+impl Eval for IntMinCheck {
+    fn eval(mut self: Rc<Self>, int: &mut Interpreter) {
+        let value = int.pop_value().unwrap_int();
+        if value == i64::MIN {
+            match self.first {
+                true => {
+                    Rc::get_mut(&mut self).expect("Implementation error - can't negate an i64::min").first = false;
+                    int.push_eval(self);
+                    int.push_eval(Error::new(error_codes::INT_MIN_NEGATION));
+                }
+                false => {
+                    int.push_eval(self);
+                    int.push_eval(Error::new(error_codes::ERROR_LOOP));
+                }
+            }
+        } else {
+            int.push_value(Value::Int(value));
+        }
+    }
+    fn short_name(&self) -> &str {
+        "TypecheckInt"
     }
 }

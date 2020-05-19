@@ -15,6 +15,8 @@ pub mod symbols {
         const ERROR_CODE_START: u64 = u64::MAX - 10000;
         pub const TYPE_ERROR_INT: u64 = ERROR_CODE_START - 1;
         pub const ERROR_LOOP: u64 = ERROR_CODE_START - 2;
+        pub const INT_MIN_NEGATION: u64 = ERROR_CODE_START - 3;
+
     }
 }
 
