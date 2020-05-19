@@ -78,20 +78,6 @@ pub enum BooleanOperator {
 }
 
 #[derive(Debug)]
-pub struct DotExpression {
-    pub base: Rc<dyn Expression>,
-    pub prop: String,
-}
-impl Expression for DotExpression {}
-
-#[derive(Debug)]
-pub struct IndexExpression {
-    pub base: Rc<dyn Expression>,
-    pub index: Rc<dyn Expression>,
-}
-impl Expression for IndexExpression {}
-
-#[derive(Debug)]
 pub struct ComparisonExpression {
     pub left: Rc<dyn Expression>,
     pub right: Rc<dyn Expression>,

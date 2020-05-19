@@ -13,6 +13,7 @@ pub fn scope(parent: Option<Rc<Scope>>) -> Rc<Scope> {
             map.insert(Key::Str("type_error_int".into()), Symbol(error_codes::TYPE_ERROR_INT));
             map.insert(Key::Str("error_loop".into()), Symbol(error_codes::ERROR_LOOP));
             map.insert(Key::Str("int_min_negation".into()), Symbol(error_codes::INT_MIN_NEGATION));
+            map.insert(Key::Str("type_error_object".into()), Symbol(error_codes::TYPE_ERROR_OBJECT));
             map
         })));
 

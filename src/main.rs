@@ -15,7 +15,7 @@ use interpreter::Interpreter;
 
 fn main() {
     let ast = kal_grammar::BlockInnerParser::new()
-        .parse(include_str!("../examples/error_addition_continue_loop.kal"))
+        .parse(include_str!("../examples/error_object_spread_type.kal"))
         .unwrap_or_else(|err| panic!("Failed to parse file, {:?}", err));
 
     let mut interpreter = Interpreter::new();

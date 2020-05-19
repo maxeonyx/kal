@@ -13,30 +13,6 @@ use crate::{
 };
 use std::{collections::HashMap, rc::Rc};
 
-impl Eval for ast::DotExpression {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        let self2 = self.clone();
-
-        int.push_eval(Rc::new(Custom::new("DotInner", move |int| {
-            let base = int.pop_value();
-            let base = match base {
-                Value::Object(obj) => obj,
-                _ => panic!("Can only use the . operator on an object."),
-            };
-
-            let value = base
-                .get(&Key::Str(self2.prop.clone()))
-                .expect("Failed using the . operator. Key wasn't present.");
-
-            int.push_value(value.clone());
-        })));
-
-        int.push_eval(self.base.clone().into_eval());
-    }
-    fn short_name(&self) -> &str {
-        "Dot"
-    }
-}
 impl Eval for ast::Object {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let self2 = self.clone();
@@ -73,6 +49,7 @@ impl Eval for ast::Object {
                     int.push_eval(expr.clone().into_eval());
                 }
                 ast::ObjectElem::Spread(expr) => {
+                    int.push_eval(CheckTypeObject::new());
                     int.push_eval(expr.clone().into_eval());
                 }
             }
@@ -288,34 +265,6 @@ impl Eval for ast::LoopExpression {
     }
 }
 
-impl Eval for ast::IndexExpression {
-    fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        int.push_eval(Rc::new(Custom::new("IndexInner", |int| {
-            let base = int.pop_value();
-            let index = int.pop_value();
-            let base = match base {
-                Value::List(list) => list,
-                _ => panic!("Can only apply the [] operator to lists."),
-            };
-            let index = match index {
-                Value::Int(i) => i,
-                _ => panic!("Can only use integer values in the [] operator."),
-            };
-
-            let index = wrap_list_index(base.len(), index);
-
-            let value = base.get(index).expect("Index out of bounds of list.");
-
-            int.push_value(value.clone());
-        })));
-
-        int.push_eval(self.base.clone().into_eval());
-        int.push_eval(self.index.clone().into_eval());
-    }
-    fn short_name(&self) -> &str {
-        "Index"
-    }
-}
 impl Eval for ast::List {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let self2 = self.clone();
@@ -964,7 +913,9 @@ impl Eval for ast::LocationChain {
 }
 
 impl Location for ast::DotLocation {
-    fn push_exprs(&self, _int: &mut Interpreter) {}
+    fn push_exprs(&self, _int: &mut Interpreter) {
+
+    }
 
     fn resolve<'s, 'int>(
         &'s self,
@@ -1109,4 +1060,11 @@ error_check! { CheckTypeInt, error_codes::TYPE_ERROR_INT,
 
 error_check! { CheckIntMin, error_codes::INT_MIN_NEGATION,
     |value: &Value| value.unwrap_int() != i64::MIN
+}
+
+error_check! { CheckTypeObject, error_codes::TYPE_ERROR_OBJECT,
+    |value: &Value| match value {
+        Value::Object(_) => true,
+        _ => false,
+    }
 }

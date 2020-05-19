@@ -237,3 +237,5 @@ test_error! { error_addition_continue_loop, error_codes::ERROR_LOOP }
 
 test_error! { error_negative, error_codes::TYPE_ERROR_INT }
 test_error! { error_negative_min, error_codes::INT_MIN_NEGATION }
+
+test_error! { error_object_spread_type, error_codes::TYPE_ERROR_OBJECT }
