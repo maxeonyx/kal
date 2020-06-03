@@ -66,7 +66,8 @@ for num in even_numbers() {
     log(num);
 };
 
-// for loops are just syntactic sugar over handle
+// for loops are just syntactic sugar over a "handle" expression
+// this is equivalent to the above "for" loop
 handle even_numbers() {
     yield num {
         log(num);
