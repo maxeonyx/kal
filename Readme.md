@@ -1,6 +1,8 @@
 # kal
 
-The kal language is my idea for a simple dynamically typed language.
+The kal language is my idea for a simple dynamically typed language. I/O, errors and generators are managed with effects, there is no garbage collector (only reference counting is required) and it has my favourite selection of syntax.
+
+I plan to target webassembly, to take advantage of the effect system and no-permission-by-default model.
 
 ---
 
@@ -46,7 +48,7 @@ I am drawing inspiration mainly from modern JS and Rust, with some Python and Lu
 
 ## Effects
 
-Unlike all of these languages, I have implemented an effects system - think of it like generalized exceptions, which can be resumed. I am planning to use this to implement a mix of built-in monad instances - namely Async, Try and Yield. (Including any mix of those, making the language suitable for reactive programming). The effects system will also allow fully encapsulating libraries, as they can only talk to the outside world (Files, networks etc.) through "Runtime Requests", a.k.a the IO monad. Effects will implicitly bubble up through the program to the runtime, or can be caught and handled in a custom way.
+Unlike all of these languages, I have implemented an effects system - think of it like generalized exceptions, which can be resumed. I am planning to use this to implement a mix of built-in "monad" instances - namely Async, Try and Yield. (Including any mix of those, making the language suitable for reactive programming). The effects system will also allow fully encapsulating libraries, as they can only talk to the outside world (Files, networks etc.) through "Runtime Requests", a.k.a the IO monad. Effects will implicitly bubble up through the program to the runtime, or can be caught and handled in a custom way.
 
 ```rust
 
