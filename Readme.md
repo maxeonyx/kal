@@ -107,7 +107,8 @@ even_numbers();
 - [x] Intrinsics (language-defined functions)
 - [x] Mutable let bindings
 - [ ] Mutable assignment operators
-- [x] Mutable object keys and list elements
+- [x] Mutable object values and list elements
+- [ ] Non-string object keys
 - [ ] Import / export
 - [ ] Print
 - [x] List spread operator
