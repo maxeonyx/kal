@@ -1,6 +1,7 @@
-# kal
-
-The kal language is my idea for a simple dynamically typed language. I/O, errors and generators are managed with effects, there is no garbage collector (only reference counting is required) and it has my favourite selection of syntax.
+# Kal
+#### (Kal lang)
+The Kal language is my idea for a simple dynamically typed language. I/O, errors and generators are managed with effects, there 
+is no garbage collector (only reference counting is required) and it has my favourite selection of syntax.
 
 I plan to target webassembly, to take advantage of the effect system and no-permission-by-default model.
 
@@ -48,7 +49,11 @@ I am drawing inspiration mainly from modern JS and Rust, with some Python and Lu
 
 ## Effects
 
-Unlike all of these languages, I have implemented an effects system - think of it like generalized exceptions, which can be resumed. I am planning to use this to implement a mix of built-in "monad" instances - namely Async, Try and Yield. (Including any mix of those, making the language suitable for reactive programming). The effects system will also allow fully encapsulating libraries, as they can only talk to the outside world (Files, networks etc.) through "Runtime Requests", a.k.a the IO monad. Effects will implicitly bubble up through the program to the runtime, or can be caught and handled in a custom way.
+Unlike all of these languages, I have implemented an effects system - think of it like generalized exceptions, which can be resumed. 
+I am planning to use this to implement a mix of built-in "monad" instances - namely Async, Try and Yield. (Including any mix of those,
+ making the language suitable for reactive programming). The effects system will also allow fully encapsulating libraries, as they can 
+ only talk to the outside world (Files, networks etc.) through "Runtime Requests", a.k.a the IO monad. Effects will implicitly bubble up 
+ through the program to the runtime, or can be caught and handled in a custom way.
 
 ```rust
 
@@ -86,17 +91,6 @@ even_numbers();
 
 ## TODO List
 
-I would ideally like the language to be able to be syntax-agnostic. This would mean providing a stable API for the AST, and having a pluggable parser. A future project might be implementing a visual scripting language on top of that.
-
-I would also like to provide a simple wrapper library that allows users to statically "compile" their kal code. What this would mean is producing a single executable which bundles the kal interpreter with all of the users code (via `include_str!()` or similar). This executable therefore has very few runtime dependencies like a normal rust binary, and can be distributed more easily.
-
-So my wishlist is as follows:
-- Dynamic language
-- Choose your own syntax
-- Built-in common monads
-- Single "binary" output
-
-And my todo list is as follows:
 - [x] Functions
 - [x] Let bindings
 - [ ] Let patterns
@@ -123,7 +117,11 @@ And my todo list is as follows:
 - [ ] Proper error support for syntax errors.
 - [x] Non-recursive, higher performance interpreter
 - [x] Replace KalRef with Rc
+- [ ] Integer division operator
+- [ ] Modulo operator
+- [ ] Exponent operator
 - [ ] BigInts and coercion on over/underflow
+- [ ] Numpy-style tensors using the `ndarray` crate
 - [ ] Floating point numbers
 - [ ] Markdown-like comments with `#` symbol
 - [ ] Doc comments and built-in `help` function
@@ -131,3 +129,28 @@ And my todo list is as follows:
 - [ ] Embeddable Rust library
 - [ ] JS/WASM runtime
 - [ ] Native runtime
+
+## Wishlist
+
+While my language is dynamic, I would love to take advantage of type information to improve runtime performance. This means
+implementing a Gradual Typing system. One example of where this would be particularly useful in my vision is for numpy-style
+n-dimensional arrays, which to be efficient should usually contain known types rather than the Value enum. Gradual typing should
+also be useful for interop with Rust code, which is an possible future direction.
+
+I would ideally like the language to be able to be syntax-agnostic. This would mean providing a stable API for the AST, and having 
+a pluggable parser. A future project might be implementing a visual scripting language on top of that.
+
+I would also like to provide a simple wrapper library that allows users to statically "compile" their kal code. What this would mean 
+is producing a single executable which bundles the kal interpreter with all of the users code (via `include_str!()` or similar). This 
+executable therefore has very few runtime dependencies like a normal rust binary, and can be distributed more easily.
+
+As a programing language that requires the use of effects for interacting with the outside world, Kal is well-suited for targeting
+Webassembly. Webassembly runtimes provide no capabilities by default, but programs written in many languages assume use
+of a filesystem, clock or other resources. Kal programs can be run in these environments, and even if they expect side-effects to
+suceed, these can be mocked by the runtim or calling Kal code.
+
+So my wishlist is as follows:
+- Gradual typing
+- Choose your own syntax
+- Single "binary" output
+- Webassembly
