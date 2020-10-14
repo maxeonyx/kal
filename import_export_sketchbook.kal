@@ -1,0 +1,38 @@
+// declaring a module
+{
+    imports: {
+        file: "std::file",
+        nd: "ndarray",
+    },
+    exports: {
+
+    },
+    submodules: [
+        {
+            imports: {
+
+            },
+            exports: {
+
+            },
+            main: fn() null,
+        },
+    ],
+    main: fn() null,
+}
+
+
+// stage 1: build requirements tree (build)
+// this stage can fail if the module cannot provide the required capabilities
+// option 1: effects? Not sure that this would work
+let f = import("");
+
+// option 2: return requirements object
+{
+    imports: {
+        name: "module specifier"
+    }
+}
+
+
+// stage 2: dependency injection (startup)

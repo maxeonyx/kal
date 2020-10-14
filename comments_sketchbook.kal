@@ -1,9 +1,9 @@
-#! is allowed because # is a normal comment
+#! shebang is allowed because # is a normal comment
 
-# normal comment (hidden in docs)
+# normal comment (ignored in docs)
 
 #*
-block comment
+block comment (ignored in docs)
 *#
 
 #*
@@ -12,14 +12,46 @@ nested block comment
 *#
 *#
 
-## doc comments are like markdown but the headers are changed.
+## doc comments are markdown have two ##.
+## but unlike markdown the number of ## increases with the importance of the header
+
 ##*
-block doc comment
+
+# sub-heading
+
+Everything in here is documentation,
+and it can span as many lines as you like.
+
+Code blocks (with no language marker) run as if they are not in comments, but they are also included in the markdown.
+```
+print("hello")
+```
+
 *##
 
-### sub-heading doc comment
+# comment
+## doc comment
+### sub-heading
 #### heading
 ##### page title
 ###### sub-section
 ####### section
 ######## library title
+
+
+let fn_with_comment = fn() {
+
+    ### Function Name
+
+    ## It does this
+
+}
+
+# `help` is an intrinsic which returns the documentation of a function
+let text = help(fn_with_comment);
+
+# convert to real markdown
+let text = help(fn_with_comment, "markdown");
+
+# convert to html
+let text = help(fn_with_comment, "html");
