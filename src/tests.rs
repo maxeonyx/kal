@@ -59,6 +59,15 @@ test! { fn_nested, Value::Int(4) }
 
 test! { fn_chained, Value::Int(23) }
 
+test! { fn_object_empty, Value::Object(Rc::new(HashMap::new())) }
+
+test! { fn_object, 
+    {
+        let mut obj = HashMap::new();
+        obj.insert(Key::Str("cat".to_owned()), Value::Int(1));
+        Value::Object(Rc::new(obj))
+    } }
+
 test! { fn_null, Value::Null }
 
 test! { fn_multiple_statements, Value::Int(100) }
