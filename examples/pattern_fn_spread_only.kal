@@ -1,0 +1,5 @@
+fn spready(...x) {
+    x
+}
+
+spready(3, 2, 1) == [3, 2, 1]

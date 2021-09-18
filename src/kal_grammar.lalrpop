@@ -16,6 +16,10 @@ Comma<T>: Vec<T> = {
     },
 };
 
+CommaBefore<T>: Vec<T> = {
+    <v:("," <T>)*> => v,
+}
+
 Block: Rc<Block> = {
 	"{" <b:BlockInnerNotEmpty> "}" => b,
 };
@@ -185,11 +189,48 @@ ParenExpression: Rc<dyn Expression> = {
 }
 
 Function: Rc<Function> = {
-    "fn" "(" <parameters:Comma<Ident>> ")" <body:FunctionBody> =>
+    "fn" "(" <pattern:ListPattern> ")" <body:FunctionBody> =>
     Rc::new(Function {
-        parameters,
+        pattern: Rc::new(pattern),
         body,
     }),
+}
+
+SpreadPattern: SpreadPattern = {
+    "..." <i:Ident?> => match i {
+        None => SpreadPattern::Unnamed,
+        Some(s) => SpreadPattern::Named(s),
+    }
+}
+
+// ()
+// (a)
+// (a, )
+// (a, ...)
+// (...)
+// (..., )
+// (a, ..., b)
+// (a, ..., b, )
+// (..., b)
+// (..., b, )
+
+ListPattern: ListPattern = {
+    => ListPattern {
+        before_params: vec![],
+        spread_and_after_params: None,
+    },
+    <spread:SpreadPattern> <after_params:("," <Ident>)*> ","? => ListPattern {
+        before_params: vec![],
+        spread_and_after_params: Some((spread, after_params)),
+    },
+    <a:Ident> <before_params:("," <Ident>)*> <spread_and_after_params:("," <SpreadPattern> <("," <Ident>)*>)?> ","? => {
+        let mut before_params = before_params;
+        before_params.insert(0, a);
+        ListPattern {
+            before_params,
+            spread_and_after_params,
+        }
+    }
 }
 
 FunctionBody: Rc<Block> = {
@@ -201,10 +242,15 @@ FunctionBody: Rc<Block> = {
     <b: Block> => b,
 }
 
+LetPattern: Rc<LetPattern> = {
+    <pattern:Ident> => Rc::new(LetPattern::Ident(pattern)),
+    "[" <pattern:ListPattern> "]" => Rc::new(LetPattern::List(pattern)),
+}
+
 LetStatement: Rc<LetStatement> = {
-    "let" <ident:Ident> "=" <expr:Expression> =>
+    "let" <pattern:LetPattern> "=" <expr:Expression> =>
     Rc::new(LetStatement {
-        ident,
+        pattern,
         expr,
     }),
 }
@@ -251,10 +297,10 @@ LoopExpression: Rc<LoopExpression> = {
 }
 
 FunctionInvocation: Rc<FunctionInvocation> = {
-    <base:SimpleExpression> "(" <parameters:Comma<Expression>> ")" =>
+    <base:SimpleExpression> "(" <elems:Comma<ListElem>> ")" =>
         Rc::new(FunctionInvocation {
             base,
-            parameters,
+            elems,
         }),
 }
 
@@ -269,9 +315,9 @@ Literal: Rc<dyn Expression> = {
 }
 
 List: Rc<List> = {
-    "[" <elements:Comma<ListElem>> "]" =>
+    "[" <elems:Comma<ListElem>> "]" =>
         Rc::new(List {
-            elements,
+            elems,
         }),
 }
 

@@ -1,0 +1,5 @@
+let print_symbol = symbol();
+
+fn print(...args) {
+    
+}

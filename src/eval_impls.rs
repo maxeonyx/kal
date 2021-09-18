@@ -5,10 +5,7 @@ use super::{
         Value,
     },
 };
-use crate::{
-    ast,
-    eval::{Custom, Location},
-};
+use crate::{ast::{self, LetStatement}, eval::{Custom, Location}};
 use std::{collections::HashMap, rc::Rc};
 
 impl Eval for ast::DotExpression {
@@ -318,8 +315,8 @@ impl Eval for ast::List {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let self2 = self.clone();
         int.push_eval(Rc::new(Custom::new("ListInner", move |int| {
-            let mut list = Vec::with_capacity(self2.elements.len());
-            for elem in &self2.elements {
+            let mut list = Vec::with_capacity(self2.elems.len());
+            for elem in &self2.elems {
                 let value = int.pop_value();
                 match elem {
                     ast::ListElem::Spread(_) => {
@@ -342,7 +339,7 @@ impl Eval for ast::List {
             int.push_value(Value::List(Rc::new(list)))
         })));
 
-        for elem in &self.elements {
+        for elem in &self.elems {
             let expr = match elem {
                 ast::ListElem::Spread(expr) => expr,
                 ast::ListElem::Elem(expr) => expr,
@@ -484,12 +481,52 @@ impl Eval for ast::ExpressionStatement {
 
 #[derive(Debug)]
 pub struct LetInner {
-    name: String,
+    pattern: Rc<ast::LetPattern>,
 }
 impl Eval for LetInner {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
         let val = int.pop_value();
-        int.create_binding(self.name.clone(), val);
+
+        use ast::LetPattern::*;
+        match *self.pattern {
+            Ident(name) => {
+                int.create_binding(name.clone(), val);
+            },
+            List(pattern) => {
+                let vals = match val {
+                    Value::List(l) => l,
+                    _ => panic!("Can't destructure, the value is not a list."),
+                };
+
+                let mut vals = vals.into_iter();
+
+                let n_before = pattern.before_params.len();
+                
+                for (name, elem) in pattern.before_params.iter().zip(vals) {
+                    int.create_binding(name.clone(), elem);
+                }
+
+                if let Some((spread, after_params)) = pattern.spread_and_after_params {
+                    let n_after = after_params.len();
+                    let n_in_spread = vals.len() - (n_before + n_after);
+
+                    use ast::SpreadPattern::*;
+                    match spread {
+                        Unnamed => {
+                            vals.skip(n_in_spread);
+                        },
+                        Named(name) => {
+                            int.create_binding(name.clone(), Value::List(Rc::new(vals.take(n_in_spread).collect())));
+                        }
+                    };
+
+                    for (name, elem) in after_params.iter().zip(vals) {
+                        int.create_binding(name.clone(), elem);
+                    }
+                }
+            }
+            Object(pattern) => todo!(),
+        }
     }
     fn short_name(&self) -> &str {
         "LetInner"
@@ -498,8 +535,7 @@ impl Eval for LetInner {
 
 impl Eval for ast::LetStatement {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        let name = self.ident.clone();
-        int.push_eval(Rc::new(LetInner { name }));
+        int.push_eval(Rc::new(LetInner { pattern: self.pattern.clone() }));
         int.push_eval(self.expr.clone().into_eval());
     }
     fn short_name(&self) -> &str {
@@ -616,7 +652,7 @@ impl Eval for String {
 
 impl Eval for ast::FunctionInvocation {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        let num_params_provided = self.parameters.len();
+        let num_params_provided = self.elems.len();
         int.push_eval(Rc::new(Custom::new(
             "FunctionInvocationInner",
             move |int| {
@@ -635,16 +671,26 @@ impl Eval for ast::FunctionInvocation {
                     }
                     _ => panic!("Cannot call value other than closure."),
                 };
-                let param_names = &closure.code.parameters;
-
                 let body = closure.code.body.clone();
                 let scope = Scope::extend(closure.parent_scope.clone());
 
-                // param lists of different length
-                assert!(
-                    num_params_provided == param_names.len(),
-                    "Must call function with the exact number of params."
-                );
+                let pattern = &closure.code.pattern;
+
+                let n_before = pattern.before_params.len();
+
+                match pattern.spread_and_after_params {
+                    None => // no spread, so must have exact number of params
+                        assert!(
+                            num_params_provided == n_before,
+                            "Must call {} with the exact number of params.",
+                            closure.code.short_name(),
+                        ),
+                    Some((spread, after_params)) => {
+                        let n_after = after_params.len();
+                        assert!(num_params_provided >= n_before + n_after, 
+                            "Must call function with enough params.");
+                    }
+                }
 
                 let mut values = Vec::with_capacity(num_params_provided);
                 for _ in 0..num_params_provided {
@@ -653,8 +699,18 @@ impl Eval for ast::FunctionInvocation {
 
                 int.push_fn_context(FunctionContext::new(scope));
 
-                for (name, value) in param_names.iter().zip(values) {
+                for (i, name) in pattern.before_params.iter().enumerate() {
+                    let value = values[i];
                     int.create_binding(name.clone(), value);
+                }
+
+                if let Some((spread, after_params)) = pattern.spread_and_after_params {
+                    let n_in_spread = num_params_provided - (pattern.before_params.len() + after_params.len());
+                    let after_params_start_idx = pattern.before_params.len() + num_params_going_into_spread;
+                    for (i, name) in after_params.iter().enumerate() {
+                        let value = values[after_params_start_idx+i];
+                        int.create_binding(name.clone(), value);
+                    }
                 }
 
                 int.push_eval(body);
@@ -662,8 +718,15 @@ impl Eval for ast::FunctionInvocation {
         )));
 
         int.push_eval(self.base.clone().into_eval());
-
-        for expr in self.parameters.iter() {
+        
+        // splats: num_params_provided now dynamic
+        // count num params provided *after* eval???
+        // or eval splats later?
+        for elem in &self.elems {
+            let expr = match elem {
+                ast::ListElem::Spread(expr) => expr,
+                ast::ListElem::Elem(expr) => expr,
+            };
             int.push_eval(expr.clone().into_eval());
         }
     }
@@ -703,7 +766,7 @@ impl Eval for Handler {
         if let Some((_, ast::HandleMatch { param, block, .. })) = match_arm {
             int.push_eval(Rc::new(PopScope));
             int.push_eval(block);
-            int.push_eval(Rc::new(LetInner { name: param }));
+            int.push_eval(Rc::new(LetInner { pattern: Rc::new(ast::LetPattern::Ident(param)) }));
             // if PushScope added/consumed values, or changed the context, we would have to push an identity function here instead of value directly.
             int.push_value(value);
             int.push_eval(Rc::new(PushScope));

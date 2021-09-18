@@ -37,8 +37,15 @@ pub struct Int(pub i64);
 impl Expression for Int {}
 
 #[derive(Debug)]
+pub enum LetPattern {
+    Ident(String),
+    List(ListPattern),
+    Object(ObjectPattern),
+}
+
+#[derive(Debug)]
 pub struct LetStatement {
-    pub ident: String,
+    pub pattern: Rc<LetPattern>,
     pub expr: Rc<dyn Expression>,
 }
 impl Statement for LetStatement {}
@@ -147,7 +154,7 @@ impl Expression for LoopExpression {}
 #[derive(Debug)]
 pub struct Function {
     pub body: Rc<Block>,
-    pub parameters: Vec<String>,
+    pub pattern: Rc<ListPattern>,
 }
 impl Expression for Function {}
 
@@ -161,7 +168,7 @@ impl Expression for Block {}
 #[derive(Debug)]
 pub struct FunctionInvocation {
     pub base: Rc<dyn Expression>,
-    pub parameters: Vec<Rc<dyn Expression>>,
+    pub elems: Vec<ListElem>,
 }
 impl Expression for FunctionInvocation {}
 
@@ -179,7 +186,7 @@ pub enum ObjectElem {
 
 #[derive(Debug)]
 pub struct List {
-    pub elements: Vec<ListElem>,
+    pub elems: Vec<ListElem>,
 }
 impl Expression for List {}
 
@@ -243,4 +250,32 @@ pub struct DotLocation {
 #[derive(Debug)]
 pub struct IndexLocation {
     pub index: Rc<dyn Expression>,
+}
+
+#[derive(Debug)]
+pub enum SpreadPattern {
+    Unnamed,
+    Named(String),
+}
+
+#[derive(Debug)]
+pub struct ListPattern {
+    pub before_params: Vec<String>,
+
+    // if spread_and_after_params is present, there is a spread
+    // else if it is None, there is only params.
+    // if the spread has a value, ththe spread has an identifier eg. ...name
+    // if the spread is None, it is unnamed spread eg. ...
+    // if there is a spread, the after params may be empty
+    // list pattern only supports one spread
+    pub spread_and_after_params: Option<(SpreadPattern, Vec<String>)>,
+}
+
+#[derive(Debug)]
+pub struct ObjectPattern {
+    pub params: Vec<String>,
+
+    // if spread is None, there is no spread
+    // if spread is Some(None) there is a spread but it is 
+    pub spread: Option<SpreadPattern>
 }

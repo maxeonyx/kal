@@ -20,7 +20,7 @@ macro_rules! test {
         pub fn $test_name() {
             let val = eval_file(&format!("examples/{}.kal", stringify!($test_name)));
             let expected = $expected_val;
-            assert!(val == expected, format!("Assertion failed: got {:?}, expected {:?}.", val, expected));
+            assert!(val == expected, "Assertion failed: got {:?}, expected {:?}.", val, expected);
         }
     };
     {$test_name:ident, $expected_val:expr} => {
@@ -28,7 +28,7 @@ macro_rules! test {
         pub fn $test_name() {
             let val = eval_file(&format!("examples/{}.kal", stringify!($test_name)));
             let expected = $expected_val;
-            assert!(val == expected, format!("Assertion failed: got {:?}, expected {:?}.", val, expected));
+            assert!(val == expected, "Assertion failed: got {:?}, expected {:?}.", val, expected);
         }
     };
 }
@@ -213,3 +213,11 @@ test! { loop_continue, Value::Int(5) }
 test! { loop_collect, Value::List(Rc::new(vec![Value::Int(0), Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4)])) }
 
 test! { expression_as_statement, Value::Int(2) }
+
+
+test! { pattern_fn_spread_last, Value::Bool(true) }
+test! { pattern_fn_spread_only, Value::Bool(true) }
+test! { pattern_fn_spread_spread_both, Value::Bool(true) }
+test! { pattern_let_list, Value::Bool(true) }
+test! { pattern_let_object, Value::Bool(true) }
+test! { pattern_let_spread, Value::Bool(true) }
