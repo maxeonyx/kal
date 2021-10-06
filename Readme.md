@@ -93,7 +93,9 @@ even_numbers();
 
 - [x] Functions
 - [x] Let bindings
-- [ ] Let patterns
+- [x] Let patterns (list destructuring)
+- [ ] Let patterns (object destructuring)
+- [x] Fn arg patterns (collection args)
 - [x] Addition, multiplication, subtraction, division
 - [x] Comparisons, boolean operators
 - [x] If expressions
