@@ -20,13 +20,20 @@ pub enum Intrinsic {
 }
 
 impl Intrinsic {
-    pub fn code(self) -> Rc<dyn Eval> {
+    pub fn name(&self) -> String {
+        use Intrinsic::*;
+        match self {
+            Symbol => "symbol".to_owned(),
+        }
+    }
+
+    pub fn code(&self) -> Rc<dyn Eval> {
         use Intrinsic::*;
         match self {
             Symbol => symbol(),
         }
     }
-    pub fn num_parameters(self) -> usize {
+    pub fn num_parameters(&self) -> usize {
         use Intrinsic::*;
         match self {
             Symbol => 0,

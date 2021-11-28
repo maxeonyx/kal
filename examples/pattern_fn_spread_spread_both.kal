@@ -1,5 +1,5 @@
-fn spready(a, ...x, b) {
+let spready = fn(a, ...x, b) {
     [a, x, b]
-}
+};
 
 spready(1, 2, 3, 4) == [1, [2, 3], 4]

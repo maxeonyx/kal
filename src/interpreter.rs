@@ -88,6 +88,7 @@ pub struct Scope {
     bindings: HashMap<String, Value>,
 }
 impl Scope {
+
     pub fn with_bindings(parent: Option<Rc<Scope>>, bindings: HashMap<String, Value>) -> Self {
         Self { parent, bindings }
     }
