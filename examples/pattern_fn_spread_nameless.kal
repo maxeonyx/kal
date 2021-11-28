@@ -1,0 +1,5 @@
+let spready = fn(...) {
+    1
+};
+
+spready() == spready(3, 2, 1)

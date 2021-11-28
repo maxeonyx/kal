@@ -216,8 +216,10 @@ test! { expression_as_statement, Value::Int(2) }
 
 
 test! { pattern_fn_spread_last, Value::Bool(true) }
+test! { pattern_fn_spread_nameless, Value::Bool(true) }
 test! { pattern_fn_spread_only, Value::Bool(true) }
 test! { pattern_fn_spread_spread_both, Value::Bool(true) }
+test! { pattern_let_list_spread_nameless, Value::Bool(true) }
 test! { pattern_let_list_spread, Value::Bool(true) }
 test! { pattern_let_list, Value::Bool(true) }
 test! { pattern_let_object, Value::Bool(true) }
