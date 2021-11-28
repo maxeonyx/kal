@@ -122,7 +122,7 @@ test! { symbol, Value::Symbol(0) } // first symbol is always 0
 
 test! { symbol_as_value, Value::Symbol(1) } // second symbol is always 1
 
-test! { symbol_equality, Value::Bool(false) }
+test! { symbol_equality, Value::Bool(true) }
 
 test! { trailing_commas, Value::Int(2) }
 

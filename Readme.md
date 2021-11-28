@@ -93,9 +93,7 @@ even_numbers();
 
 - [x] Functions
 - [x] Let bindings
-- [x] Let patterns (list destructuring)
-- [ ] Let patterns (object destructuring)
-- [x] Fn arg patterns (collection args)
+- [ ] Function name declaration syntax
 - [x] Addition, multiplication, subtraction, division
 - [x] Comparisons, boolean operators
 - [x] If expressions
@@ -115,7 +113,10 @@ even_numbers();
 - [ ] Print
 - [x] List spread operator
 - [x] Object spread operator
-- [ ] Function param spread (in / out)
+- [x] Function param spread (in / out)
+- [x] Let patterns (list destructuring)
+- [ ] Let patterns (object destructuring)
+- [x] Fn arg patterns (collection args)
 - [ ] Proper error support for type errors.
 - [ ] Proper error support for syntax errors.
 - [x] Non-recursive, higher performance interpreter

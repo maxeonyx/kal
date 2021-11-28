@@ -1,1 +1,1 @@
-symbol() == symbol()
+symbol() != symbol()
