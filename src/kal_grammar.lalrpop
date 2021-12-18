@@ -45,7 +45,8 @@ pub BlockInner: Rc<Block> = {
         }),
 }
 
-// Blocks do not allow the block to be empty. This means that lone curly braces are empty objects instead.
+// Blocks don't allow the block to be empty. This means that lone curly braces are empty objects instead.
+// However, an empty ast::Block *can* exist via an empty file
 pub BlockInnerNotEmpty: Rc<Block> = {
     <e:Expression> =>
         Rc::new(Block {
@@ -61,6 +62,7 @@ pub BlockInnerNotEmpty: Rc<Block> = {
 
 Statement: Rc<dyn Statement> = {
     <le:LetStatement> => le,
+    <nf:NamedFunction> => nf,
     <a:Assignment> => a,
     <e:Expression> => e.into_statement(),
 }
@@ -193,6 +195,17 @@ Function: Rc<Function> = {
     Rc::new(Function {
         pattern: Rc::new(pattern),
         body,
+    }),
+}
+
+NamedFunction: Rc<NamedFunction> = {
+    "fn" <name:Ident> "(" <pattern:ListPattern> ")" <body:FunctionBody> =>
+    Rc::new(NamedFunction {
+        name,
+        function: Rc::new(Function {
+            pattern: Rc::new(pattern),
+            body,
+        }),
     }),
 }
 

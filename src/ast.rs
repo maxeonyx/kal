@@ -159,9 +159,16 @@ pub struct Function {
 impl Expression for Function {}
 
 #[derive(Debug)]
+pub struct NamedFunction {
+    pub name: String,
+    pub function: Rc<Function>,
+}
+impl Statement for NamedFunction {}
+
+#[derive(Debug)]
 pub struct Block {
-    pub expression: Option<Rc<dyn Expression>>,
     pub statements: Vec<Rc<dyn Statement>>,
+    pub expression: Option<Rc<dyn Expression>>,
 }
 impl Expression for Block {}
 

@@ -429,6 +429,17 @@ impl Eval for ast::Function {
     }
 }
 
+impl Eval for ast::NamedFunction {
+    fn eval(self: Rc<Self>, int: &mut Interpreter) {
+        let scope = int.branch_scope();
+        let value = Value::Closure(Rc::new(Closure::new(self.function.clone(), scope)));
+        int.create_binding(self.name.clone(), value);
+    }
+    fn short_name(&self) -> &str {
+        "NamedFunction"
+    }
+}
+
 #[derive(Debug)]
 pub struct PopScope;
 impl Eval for PopScope {
