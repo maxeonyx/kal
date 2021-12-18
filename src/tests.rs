@@ -34,7 +34,7 @@ macro_rules! test {
 }
 
 macro_rules! test_error {
-    {$test_name:ident, $expected_val:expr} => {
+    {$test_name:ident} => {
         #[test]
         #[should_panic]
         pub fn $test_name() {
@@ -79,6 +79,7 @@ test! { fn_object,
     } }
 
 test! { fn_null, Value::Null }
+test! { fn_named, Value::Bool(true) }
 
 test! { fn_multiple_statements, Value::Int(100) }
 
@@ -234,8 +235,9 @@ test! { pattern_let_list_spread_nameless, Value::Bool(true) }
 test! { pattern_let_list_spread, Value::Bool(true) }
 test! { pattern_let_list, Value::Bool(true) }
 test! { pattern_let_list_nested, Value::Bool(true) }
-test_error! { pattern_let_list_spread_too_many, Value::Null }
-test_error! { pattern_let_list_spread_not_enough, Value::Null }
+test_error! { pattern_let_list_spread_too_many }
+test_error! { pattern_let_list_spread_not_enough }
+test_error! { pattern_let_list_spread_not_enough_spread }
 test! { pattern_let_list_empty, Value::Null }
 test! { pattern_let_object, Value::Bool(true) }
 test! { pattern_let_object_spread_nameless, Value::Bool(true) }

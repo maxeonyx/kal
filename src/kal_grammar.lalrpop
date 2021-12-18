@@ -203,6 +203,12 @@ SpreadPattern: SpreadPattern = {
     }
 }
 
+ListSubPattern: ListSubPattern = {
+    <i:Ident> => ListSubPattern::Ident(i),
+    "{" <o:ObjectPattern> "}" => ListSubPattern::Object(Box::new(o)),
+    "[" <l:ListPattern> "]" => ListSubPattern::List(Box::new(l)),
+}
+
 // ()
 // (a)
 // (a, )
@@ -215,41 +221,58 @@ SpreadPattern: SpreadPattern = {
 // (..., b, )
 
 ListPattern: ListPattern = {
+
     => ListPattern {
-        before_params: vec![],
-        spread_and_after_params: None,
+        before_patterns: vec![],
+        spread_and_after_patterns: None,
     },
-    <spread:SpreadPattern> <after_params:("," <Ident>)*> ","? => ListPattern {
-        before_params: vec![],
-        spread_and_after_params: Some((spread, after_params)),
+    <spread:SpreadPattern> <after_patterns:("," <ListSubPattern>)*> ","? => ListPattern {
+        before_patterns: vec![],
+        spread_and_after_patterns: Some((spread, after_patterns)),
     },
-    <a:Ident> <before_params:("," <Ident>)*> <spread_and_after_params:("," <SpreadPattern> <("," <Ident>)*>)?> ","? => {
-        let mut before_params = before_params;
-        before_params.insert(0, a);
+    <first_pattern:ListSubPattern> <before_patterns:("," <ListSubPattern>)*> <spread_and_after_patterns:("," <SpreadPattern> <("," <ListSubPattern>)*>)?> ","? => {
+        let mut before_patterns = before_patterns;
+        before_patterns.insert(0, first_pattern);
         ListPattern {
-            before_params,
-            spread_and_after_params,
+            before_patterns,
+            spread_and_after_patterns,
         }
     }
 }
 
+ObjectSubPattern: ObjectSubPattern = {
+    <i:Ident> => ObjectSubPattern::Ident(i),
+    <i:Ident> "." "{" <o:ObjectPattern> "}" => ObjectSubPattern::Object(i, Box::new(o)),
+    <i:Ident> "." "[" <l:ListPattern> "]" => ObjectSubPattern::List(i, Box::new(l)),
+    <i:Ident> "." "*" => ObjectSubPattern::Object(i, Box::new(ObjectPattern {
+        patterns: Vec::new(),
+        final_pattern: Some(ObjectFinalPattern::Wildcard),
+    })),
+}
+
+ObjectFinalPattern: ObjectFinalPattern = {
+    "..." => ObjectFinalPattern::SpreadNameless,
+    "..." <i:Ident> => ObjectFinalPattern::Spread(i),
+    "*" => ObjectFinalPattern::Wildcard,
+}
+
 ObjectPattern: ObjectPattern = {
     => ObjectPattern {
-        params: vec![],
-        spread: None,
+        patterns: Vec::new(),
+        final_pattern: None,
     },
-    <spread:SpreadPattern> <after_params:("," <Ident>)*> ","? => ListPattern {
-        before_params: vec![],
-        spread_and_after_params: Some((spread, after_params)),
+    <final_pattern:ObjectFinalPattern> ","? => ObjectPattern {
+        patterns: Vec::new(),
+        final_pattern: Some(final_pattern),
     },
-    <a:Ident> <before_params:("," <Ident>)*> <spread_and_after_params:("," <SpreadPattern> <("," <Ident>)*>)?> ","? => {
-        let mut before_params = before_params;
-        before_params.insert(0, a);
-        ListPattern {
-            before_params,
-            spread_and_after_params,
+    <first_pattern:ObjectSubPattern> <patterns:("," <ObjectSubPattern>)*> <final_pattern:("," <ObjectFinalPattern>)?> ","? => {
+        let mut patterns = patterns;
+        patterns.insert(0, first_pattern);
+        ObjectPattern {
+            patterns,
+            final_pattern,
         }
-    }
+    },
 }
 
 FunctionBody: Rc<Block> = {
@@ -264,6 +287,11 @@ FunctionBody: Rc<Block> = {
 LetPattern: Rc<LetPattern> = {
     <pattern:Ident> => Rc::new(LetPattern::Ident(pattern)),
     "[" <pattern:ListPattern> "]" => Rc::new(LetPattern::List(pattern)),
+    "{" <pattern:ObjectPattern> "}" => Rc::new(LetPattern::Object(pattern)),
+    "*" => Rc::new(LetPattern::Object(ObjectPattern {
+        patterns: Vec::new(),
+        final_pattern: Some(ObjectFinalPattern::Wildcard),
+    })),
 }
 
 LetStatement: Rc<LetStatement> = {

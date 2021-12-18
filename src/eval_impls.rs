@@ -5,8 +5,11 @@ use super::{
         Value,
     },
 };
-use crate::{ast::{self, LetStatement, SpreadPattern}, eval::{Custom, Location}};
-use std::{collections::HashMap, rc::Rc};
+use crate::{
+    ast::{self},
+    eval::{Custom, Location},
+};
+use std::{collections::HashMap, iter::Peekable, rc::Rc, vec::IntoIter};
 
 impl Eval for ast::DotExpression {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
@@ -40,18 +43,19 @@ impl Eval for ast::Object {
             let mut map = HashMap::new();
 
             for elem in self2.elems.iter() {
-
                 match elem {
                     ast::ObjectElem::Kv(name, _) => {
                         let value = int.pop_value();
-        
+
                         map.insert(Key::Str(name.clone()), value);
                     }
                     ast::ObjectElem::Spread(_) => {
                         let value = int.pop_value();
                         let value = match value {
                             Value::Object(obj) => obj,
-                            _ => panic!("Can only use the ... operator in an object literal on an object."),
+                            _ => panic!(
+                                "Can only use the ... operator in an object literal on an object."
+                            ),
                         };
 
                         map.extend(value.iter().map(|(key, val)| (key.clone(), val.clone())));
@@ -479,6 +483,141 @@ impl Eval for ast::ExpressionStatement {
     }
 }
 
+fn do_object_pattern_bindings(int: &mut Interpreter, pattern: &ast::ObjectPattern, vals: Value) {
+    let mut vals = match vals {
+        Value::Object(hm) => Rc::try_unwrap(hm).expect(
+            "Can't destructure object into object pattern. The value has another reference.",
+        ),
+        _ => panic!("Can't match object pattern. The value to destructure was not an object."),
+    };
+
+    for p in &pattern.patterns {
+        match p {
+            ast::ObjectSubPattern::Ident(name) => {
+                // todo: conversion method for &String to &Key::Str(String), maybe some kind of deref impl?
+                match vals.remove(&Key::Str(name.to_string())) {
+                    None => panic!(
+                        "Could not bind {} in the patttern, did not receive it from the object.",
+                        name
+                    ),
+                    Some(v) => int.create_binding(name.to_owned(), v),
+                }
+            }
+            ast::ObjectSubPattern::List(name, pattern) => {
+                match vals.remove(&Key::Str(name.to_string())) {
+                    None => panic!("Could not navigate {} in the patttern, did not receive it from the object.", name),
+                    Some(vals) => {
+
+                        do_list_pattern_bindings(int, pattern, vals);
+                    }
+                }
+            }
+            ast::ObjectSubPattern::Object(name, pattern) => {
+                match vals.remove(&Key::Str(name.to_string())) {
+                    None => panic!("Could not navigate {} in the patttern, did not receive it from the object.", name),
+                    Some(vals) => {
+
+                        do_object_pattern_bindings(int, pattern, vals);
+                    }
+                }
+            }
+        }
+    }
+
+    match &pattern.final_pattern {
+        None => {},
+        Some(ast::ObjectFinalPattern::SpreadNameless) => {},
+        Some(ast::ObjectFinalPattern::Spread(name)) => int.create_binding(name.clone(), Value::Object(Rc::new(vals))),
+        Some(ast::ObjectFinalPattern::Wildcard) => {
+            for (key, val) in vals.into_iter() {
+                match key {
+                    Key::Str(s) => int.create_binding(s, val),
+                    Key::Null => {},
+                    Key::Bool(_) => {},
+                    Key::Int(_) => {},
+                    Key::Symbol(_) => {},   
+                }
+            }
+        },
+    }
+}
+
+fn do_list_pattern_bindings(int: &mut Interpreter, pattern: &ast::ListPattern, vals: Value) {
+    let vals = match vals {
+        Value::List(l) => Rc::try_unwrap(l).expect(
+            "Can't destructure list value into list pattern. The value has another reference.",
+        ),
+        _ => panic!("Can't match list pattern. The value to destructure was not a list."),
+    };
+    do_list_pattern_bindings_no_unwrap(int, pattern, vals);
+}
+
+fn do_list_pattern_bindings_no_unwrap(int: &mut Interpreter, pattern: &ast::ListPattern, vals: Vec<Value>) {
+
+    let n_vals_provided = vals.len();
+
+    let mut vals = vals.into_iter().peekable();
+
+    fn bind_subpattern(int: &mut Interpreter, pattern: &ast::ListSubPattern, vals: &mut Peekable<IntoIter<Value>>) {
+        match pattern {
+            ast::ListSubPattern::Ident(name) => {
+                // todo: conversion method for &String to &Key::Str(String), maybe some kind of deref impl?
+                match vals.next() {
+                    None => panic!("Could not bind {} in the pattern, not enough values provided to unpack list pattern.", name),
+                    Some(v) => int.create_binding(name.to_owned(), v),
+                }
+            }
+            ast::ListSubPattern::List(pattern) => match vals.next() {
+                None => panic!(
+                    "Could not destructure list in list pattern, not enough values provided."
+                ),
+                Some(vals) => {
+                    do_list_pattern_bindings(int, pattern, vals);
+                }
+            },
+            ast::ListSubPattern::Object(pattern) => match vals.next() {
+                None => panic!(
+                    "Could not destructure object in list pattern, not enough values provided."
+                ),
+                Some(vals) => {
+                    do_object_pattern_bindings(int, pattern, vals);
+                }
+            },
+        }
+    }
+
+    for pattern in &pattern.before_patterns {
+        bind_subpattern(int, pattern, &mut vals);
+    }
+
+    if let Some((spread, after_params)) = &pattern.spread_and_after_patterns {
+        let n_vals_into_spread = n_vals_provided as i64
+            - (pattern.before_patterns.len() as i64 + after_params.len() as i64);
+        if n_vals_into_spread < 0 {
+            panic!("Not enough params remaining for patterns after the spread. Expected at least {} values total, but got {}", pattern.before_patterns.len() + after_params.len(), n_vals_provided);
+        }
+        let mut spread_values = Vec::new();
+        for _ in 0..n_vals_into_spread {
+            match vals.next() {
+                Some(val) => spread_values.push(val),
+                None => panic!("Shouldn't happen. Tried to unpack too many values into spread."),
+            }
+        }
+        if let ast::SpreadPattern::Named(name) = spread {
+            int.create_binding(name.clone(), Value::List(Rc::new(spread_values)));
+        }
+
+        for pattern in after_params {
+            bind_subpattern(int, pattern, &mut vals);
+        }
+    }
+
+    match vals.next() {
+        Some(_) => panic!("Too many params provided to list pattern."),
+        None => {}
+    }
+}
+
 #[derive(Debug)]
 pub struct LetInner {
     pattern: Rc<ast::LetPattern>,
@@ -491,48 +630,13 @@ impl Eval for LetInner {
         match &*self.pattern {
             Ident(name) => {
                 int.create_binding(name.clone(), val);
-            },
-            List(pattern) => {
-                let values = match val {
-                    Value::List(l) => Rc::try_unwrap(l).expect("Shouldn't happen. Newly evaluated value has a reference."),
-                    _ => panic!("Can't destructure, the value is not a list."),
-                };
-
-                let num_params_provided = values.len();
-
-
-                let mut values = values.into_iter().peekable();
-                let mut before_params = pattern.before_params.iter().peekable();
-
-                while let (Some(_), Some(_)) = (values.peek(), before_params.peek()) {
-                    if let (Some(value), Some(name)) = (values.next(), before_params.next()) {
-                        int.create_binding(name.clone(), value);
-                    }
-                }
-
-                if let Some((spread, after_params)) = &pattern.spread_and_after_params {
-                    let n_in_spread = num_params_provided as i64 - (pattern.before_params.len() as i64 + after_params.len() as i64);
-                    if n_in_spread < 0 {
-                        panic!("Not enough params given to spread. Expected at least {} but got {}", pattern.before_params.len() + after_params.len(), num_params_provided);
-                    }
-                    let mut spread_values = Vec::new();
-                    for _ in 0..n_in_spread {
-                        if let Some(value) = values.next() {
-                            spread_values.push(value);
-                        }
-                    }
-                    if let ast::SpreadPattern::Named(name) = spread {
-                        int.create_binding(name.clone(), Value::List(Rc::new(spread_values)));
-                    }
-                    let mut after_params = after_params.iter().peekable();
-                    while let (Some(_), Some(_)) = (values.peek(), after_params.peek()) {
-                        if let (Some(value), Some(name)) = (values.next(), after_params.next()) {
-                            int.create_binding(name.clone(), value);
-                        }
-                    }
-                }
             }
-            Object(pattern) => todo!(),
+            List(pattern) => {
+                do_list_pattern_bindings(int, pattern, val);
+            }
+            Object(pattern) => {
+                do_object_pattern_bindings(int, pattern, val);
+            }
         }
     }
     fn short_name(&self) -> &str {
@@ -542,7 +646,9 @@ impl Eval for LetInner {
 
 impl Eval for ast::LetStatement {
     fn eval(self: Rc<Self>, int: &mut Interpreter) {
-        int.push_eval(Rc::new(LetInner { pattern: self.pattern.clone() }));
+        int.push_eval(Rc::new(LetInner {
+            pattern: self.pattern.clone(),
+        }));
         int.push_eval(self.expr.clone().into_eval());
     }
     fn short_name(&self) -> &str {
@@ -665,12 +771,10 @@ impl Eval for ast::FunctionInvocation {
             "FunctionInvocationInner",
             move |int| {
                 let callable = int.pop_value();
-                
+
                 match &callable {
-                    Value::Closure(_) => {
-                    },
-                    Value::Intrinsic(_) => {
-                    }
+                    Value::Closure(_) => {}
+                    Value::Intrinsic(_) => {}
                     _ => panic!("Cannot call value other than closure."),
                 };
 
@@ -681,24 +785,28 @@ impl Eval for ast::FunctionInvocation {
                         ast::ListElem::Spread(_) => {
                             let list = int.pop_value();
                             let list = match list {
-                                Value::List(l) => Rc::try_unwrap(l).expect("Shouldn't happen. Newly evaluated value has a reference."),
-                                _ => panic!("Interpreter error. Expected a list on the eval stack."),
+                                Value::List(l) => Rc::try_unwrap(l).expect(
+                                    "Shouldn't happen. Newly evaluated value has a reference.",
+                                ),
+                                _ => {
+                                    panic!("Interpreter error. Expected a list on the eval stack.")
+                                }
                             };
                             for val in list {
                                 values.push(val);
                             }
-                        },
+                        }
                         ast::ListElem::Elem(_) => {
                             values.push(int.pop_value());
-                        },
+                        }
                     };
                 }
                 let num_params_provided = values.len();
 
                 match callable {
                     Value::Intrinsic(intrinsic) => {
-
                         // intrinsic needs values back on the stack instead of as bindings
+                        // todo: we can avoid both taking off and putting back on the stack by checking if there is a spread in the function invocation
                         for value in values {
                             int.push_value(value);
                         }
@@ -709,72 +817,54 @@ impl Eval for ast::FunctionInvocation {
                         );
 
                         int.push_eval(intrinsic.code());
-                    },
+                    }
                     Value::Closure(closure) => {
                         let pattern = &closure.code.pattern;
 
-                        let n_before = pattern.before_params.len();
-        
-                        match &pattern.spread_and_after_params {
-                            None => // no spread, so must have exact number of params
+                        let n_before = pattern.before_patterns.len();
+
+                        match &pattern.spread_and_after_patterns {
+                            None =>
+                            // no spread, so must have exact number of params
+                            {
                                 assert!(
                                     num_params_provided == n_before,
-                                    "Must call {} with exactly {} params.",
+                                    "Must call fn {} with exactly {} params.",
                                     closure.code.short_name(),
                                     n_before,
-                                ),
+                                )
+                            }
                             Some((_spread, after_params)) => {
                                 let n_after = after_params.len();
-                                assert!(num_params_provided >= n_before + n_after, 
-                                    "Must call function with enough params.");
+                                assert!(
+                                    num_params_provided >= n_before + n_after,
+                                    "Must call fn {} function with at least {} params.",
+                                    closure.code.short_name(),
+                                    n_before + n_after,
+                                );
                             }
                         }
 
                         // the variable scope of the parameters extends lexical scope of the closure.
-                        let scope = Scope::extend(closure.parent_scope.clone()); 
+                        let scope = Scope::extend(closure.parent_scope.clone());
 
                         // move the interpreter into this scope and onto a new instruction stack.
                         int.push_fn_context(FunctionContext::new(scope));
-                        
-                        let mut values = values.into_iter().peekable();
-                        let mut before_params = pattern.before_params.iter().peekable();
-        
-                        while let (Some(_), Some(_)) = (values.peek(), before_params.peek()) {
-                            if let (Some(value), Some(name)) = (values.next(), before_params.next()) {
-                                int.create_binding(name.clone(), value);
-                            }
-                        }
-        
-                        if let Some((spread, after_params)) = &pattern.spread_and_after_params {
-                            let n_in_spread = num_params_provided - (pattern.before_params.len() + after_params.len());
-                            let mut spread_values = Vec::new();
-                            for _ in 0..n_in_spread {
-                                if let Some(value) = values.next() {
-                                    spread_values.push(value);
-                                }
-                            }
-                            if let ast::SpreadPattern::Named(name) = spread {
-                                int.create_binding(name.clone(), Value::List(Rc::new(spread_values)));
-                            }
-                            let mut after_params = after_params.iter().peekable();
-                            while let (Some(_), Some(_)) = (values.peek(), after_params.peek()) {
-                                if let (Some(value), Some(name)) = (values.next(), after_params.next()) {
-                                    int.create_binding(name.clone(), value);
-                                }
-                            }
-                        }
+
+                        // add the function parameter bindings in the new scope
+                        do_list_pattern_bindings_no_unwrap(int, pattern, values);
 
                         let body = closure.code.body.clone();
-        
+
                         int.push_eval(body);
-                    },
+                    }
                     _ => panic!("Cannot call value other than closure."),
                 };
             },
         )));
 
         int.push_eval(self.base.clone().into_eval());
-        
+
         // splats: num_params_provided now dynamic
         // count num params provided *after* eval???
         // or eval splats later?
@@ -822,7 +912,9 @@ impl Eval for Handler {
         if let Some((_, ast::HandleMatch { param, block, .. })) = match_arm {
             int.push_eval(Rc::new(PopScope));
             int.push_eval(block);
-            int.push_eval(Rc::new(LetInner { pattern: Rc::new(ast::LetPattern::Ident(param)) }));
+            int.push_eval(Rc::new(LetInner {
+                pattern: Rc::new(ast::LetPattern::Ident(param)),
+            }));
             // if PushScope added/consumed values, or changed the context, we would have to push an identity function here instead of value directly.
             int.push_value(value);
             int.push_eval(Rc::new(PushScope));

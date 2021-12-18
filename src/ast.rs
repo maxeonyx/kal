@@ -267,7 +267,7 @@ pub enum ListSubPattern {
 
 #[derive(Debug)]
 pub struct ListPattern {
-    pub before_params: Vec<ListSubPattern>,
+    pub before_patterns: Vec<ListSubPattern>,
 
     // if spread_and_after_params is present, there is a spread
     // else if it is None, there is only params.
@@ -275,19 +275,18 @@ pub struct ListPattern {
     // if the spread is None, it is unnamed spread eg. ...
     // if there is a spread, the after params may be empty
     // list pattern only supports one spread
-    pub spread_and_after_params: Option<(SpreadPattern, Vec<ListSubPattern>)>,
+    pub spread_and_after_patterns: Option<(SpreadPattern, Vec<ListSubPattern>)>,
 }
 
 #[derive(Debug)]
 pub enum ObjectSubPattern {
     Ident(String),
     List(String, Box<ListPattern>),
-    Object(Box<ObjectPattern>),
+    Object(String, Box<ObjectPattern>),
 }
 
 #[derive(Debug)]
-pub enum ObjectFinalPosition {
-    None,
+pub enum ObjectFinalPattern {
     Spread(String),
     SpreadNameless,
     Wildcard,
@@ -295,7 +294,7 @@ pub enum ObjectFinalPosition {
 
 #[derive(Debug)]
 pub struct ObjectPattern {
-    pub params: Vec<ObjectSubPattern>,
+    pub patterns: Vec<ObjectSubPattern>,
     // final_param is None, Spread (named/not named), or Wildcard
-    pub final_param: ObjectFinalPosition,
+    pub final_pattern: Option<ObjectFinalPattern>,
 }
