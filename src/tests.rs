@@ -18,7 +18,7 @@ macro_rules! test {
         #[cfg(not(debug_assertions))]
         #[test]
         pub fn $test_name() {
-            let val = eval_file(&format!("examples/{}.kal", stringify!($test_name)));
+            let val = eval_file(&format!("tests/{}.kal", stringify!($test_name)));
             let expected = $expected_val;
             assert!(val == expected, "Assertion failed: got {:?}, expected {:?}.", val, expected);
         }
@@ -26,7 +26,7 @@ macro_rules! test {
     {$test_name:ident, $expected_val:expr} => {
         #[test]
         pub fn $test_name() {
-            let val = eval_file(&format!("examples/{}.kal", stringify!($test_name)));
+            let val = eval_file(&format!("tests/{}.kal", stringify!($test_name)));
             let expected = $expected_val;
             assert!(val == expected, "Assertion failed: got {:?}, expected {:?}.", val, expected);
         }
@@ -38,7 +38,7 @@ macro_rules! test_error {
         #[test]
         #[should_panic]
         pub fn $test_name() {
-            let val = eval_file(&format!("examples/{}.error.kal", stringify!($test_name)));
+            let val = eval_file(&format!("tests/{}.error.kal", stringify!($test_name)));
         }
     };
 }
@@ -189,7 +189,7 @@ test! { handle_two_effect_types, Value::Int(25) }
 
 #[test]
 fn handle_implicit() {
-    let val = eval_file("examples/handle_implicit.kal");
+    let val = eval_file("tests/handle_implicit.kal");
     match val {
         Value::Effect(effect) => assert!(effect.value == Value::Int(4)),
         _ => panic!("Expected an effect value, got something else."),
@@ -198,7 +198,7 @@ fn handle_implicit() {
 
 #[test]
 fn handle_empty() {
-    let val = eval_file("examples/handle_empty.kal");
+    let val = eval_file("tests/handle_empty.kal");
     match val {
         Value::Effect(effect) => assert!(effect.value == Value::Bool(true)),
         _ => panic!("Expected an effect value, got something else."),
