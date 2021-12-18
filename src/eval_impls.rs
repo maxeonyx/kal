@@ -499,16 +499,22 @@ impl Eval for LetInner {
                 };
 
                 let num_params_provided = values.len();
-                let mut values = values.into_iter();
-                let n_before = pattern.before_params.len();
-                let mut before_params = pattern.before_params.iter();
 
-                while let (Some(value), Some(name)) = (values.next(), before_params.next()) {
-                    int.create_binding(name.clone(), value);
+
+                let mut values = values.into_iter().peekable();
+                let mut before_params = pattern.before_params.iter().peekable();
+
+                while let (Some(_), Some(_)) = (values.peek(), before_params.peek()) {
+                    if let (Some(value), Some(name)) = (values.next(), before_params.next()) {
+                        int.create_binding(name.clone(), value);
+                    }
                 }
 
                 if let Some((spread, after_params)) = &pattern.spread_and_after_params {
-                    let n_in_spread = num_params_provided - (n_before + after_params.len());
+                    let n_in_spread = num_params_provided as i64 - (pattern.before_params.len() as i64 + after_params.len() as i64);
+                    if n_in_spread < 0 {
+                        panic!("Not enough params given to spread. Expected at least {} but got {}", pattern.before_params.len() + after_params.len(), num_params_provided);
+                    }
                     let mut spread_values = Vec::new();
                     for _ in 0..n_in_spread {
                         if let Some(value) = values.next() {
@@ -518,9 +524,11 @@ impl Eval for LetInner {
                     if let ast::SpreadPattern::Named(name) = spread {
                         int.create_binding(name.clone(), Value::List(Rc::new(spread_values)));
                     }
-                    let mut after_params = after_params.iter();
-                    while let (Some(value), Some(name)) = (values.next(), after_params.next()) {
-                        int.create_binding(name.clone(), value);
+                    let mut after_params = after_params.iter().peekable();
+                    while let (Some(_), Some(_)) = (values.peek(), after_params.peek()) {
+                        if let (Some(value), Some(name)) = (values.next(), after_params.next()) {
+                            int.create_binding(name.clone(), value);
+                        }
                     }
                 }
             }

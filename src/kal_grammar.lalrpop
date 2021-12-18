@@ -233,6 +233,25 @@ ListPattern: ListPattern = {
     }
 }
 
+ObjectPattern: ObjectPattern = {
+    => ObjectPattern {
+        params: vec![],
+        spread: None,
+    },
+    <spread:SpreadPattern> <after_params:("," <Ident>)*> ","? => ListPattern {
+        before_params: vec![],
+        spread_and_after_params: Some((spread, after_params)),
+    },
+    <a:Ident> <before_params:("," <Ident>)*> <spread_and_after_params:("," <SpreadPattern> <("," <Ident>)*>)?> ","? => {
+        let mut before_params = before_params;
+        before_params.insert(0, a);
+        ListPattern {
+            before_params,
+            spread_and_after_params,
+        }
+    }
+}
+
 FunctionBody: Rc<Block> = {
     <e: Expression> =>
         Rc::new(Block {

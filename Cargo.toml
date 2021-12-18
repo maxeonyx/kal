@@ -2,12 +2,12 @@
 name = "kal"
 version = "0.1.0"
 authors = ["maxeonyx <maxeonyx@gmail.com>"]
-edition = "2018"
+edition = "2021"
 build = "build.rs" # LALRPOP preprocessing
 
 [dependencies]
-lalrpop-util = "0.18.1"
+lalrpop-util = { version = "0.19.6", features = ["lexer"] }
 regex = "0.2.0"
 
 [build-dependencies]
-lalrpop = { version = "0.18.1", features = ["lexer"] }
+lalrpop = "0.19.2"
