@@ -91,19 +91,21 @@ even_numbers();
 
 ## TODO List
 
-- [x] Functions
+- [x] Functions e.g. `let add = fn (a, b) a + b; add(1, 2)`
 - [x] Let bindings
-- [ ] Function name declaration syntax
+- [x] Function name declaration syntax e.g. `fn add (a, b) { a + b };`
 - [x] Addition, multiplication, subtraction, division
-- [x] Comparisons, boolean operators
-- [x] If expressions
-- [x] Forever loops (`loop` / `break` / `continue`)
-- [ ] Foreach loops
-- [x] Lists
-- [x] Objects
+- [x] Comparisons, boolean operators e.g. `let is_true = (true and true) xor false;`
+- [x] If expressions e.g. `if bool_expr() { } else { };`
+- [x] Non-recursive (stack-based), higher performance interpreter.
+- [x] Symbols, as in JS. ("Reference capabilities" in the literature) e.g. `let [unique1, unique2] = [symbol(), symbol()]; unique1 != unique2`
+- [x] Effects (`send` / `handle` / `break [with <value>]` / `continue [with <value>]`)
+- [ ] Explicit effect propagation? e.g. `do` / `do [symbol]`
+- [x] Forever loops (`loop` / `break` / `break [with <value>]` / `continue`)
+- [ ] Foreach loops (`for <ident> in <generator>` / `break [with <value>]` / `continue [with <value>]`)
+- [x] Lists e.g. `[1, 2, 3]`
+- [x] Objects e.g. `{ a: 1, b: 2, c: 3 }`
 - [ ] Strings
-- [x] Symbols
-- [x] Effects (`send` / `handle` / `break` / `continue`)
 - [x] Intrinsics (language-defined functions)
 - [x] Mutable let bindings
 - [ ] Mutable assignment operators
@@ -111,20 +113,24 @@ even_numbers();
 - [ ] Non-string object keys
 - [ ] Import / export
 - [ ] Print
-- [x] List spread operator
-- [x] Object spread operator
-- [x] Function param spread (in / out)
-- [x] Let patterns (list destructuring)
-- [ ] Let patterns (object destructuring)
-- [x] Fn arg patterns (collection args)
+- [x] Patterns
+    - [x] List spread operator e.g. `let abcde = ['a', ...bcd, 'e'];`
+    - [x] List destructuring in `let` e.g. `let [a, [b, c, d], e] = abcde;`
+    - [x] Destructure when receiving function parameters e.g. `fn (a, [b, c, d], e) { };`
+    - [x] Spread lists into function calls e.g. `do_alphabet('a', ...[b, c, d], 'e')`
+    - [x] Object spread operator e.g. `let thing = { name: 'Thing', ...other_attributes };`
+    - [x] Object destructuring in `let` e.g. `let { a, b } = { a: 1, b: 2 };`
+    - [x] Nested destructuring in `let` and function params e.g. `let [a, { b, c }, e] = [1, { b: 2, c: 3, d: 4}, 5];`
+    - [x] `import` pattern e.g. `let * = { a: 1, b: 2 }; a + 1 == b` 
+    - [ ] Renaming in object destructuring e.g. `let { a = x, b = y } = { x: 1, y: 2 };`
 - [ ] Proper error support for type errors.
 - [ ] Proper error support for syntax errors.
-- [x] Non-recursive, higher performance interpreter
 - [x] Replace KalRef with Rc
 - [ ] Integer division operator
-- [ ] Modulo operator
-- [ ] Exponent operator
-- [ ] BigInts and coercion on over/underflow
+- [ ] Remainder operator `%`
+- [ ] Integer Modulo operator `%%`
+- [ ] Exponent operator `**`
+- [ ] BigInts, and coercion on over/underflow
 - [ ] Numpy-style tensors using the `ndarray` crate
 - [ ] Floating point numbers
 - [ ] Markdown-like comments with `#` symbol
