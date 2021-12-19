@@ -91,21 +91,50 @@ even_numbers();
 
 ## TODO List
 
-- [x] Functions e.g. `let add = fn (a, b) a + b; add(1, 2)`
 - [x] Let bindings
-- [x] Function name declaration syntax e.g. `fn add (a, b) { a + b };`
+- [x] Functions e.g.    
+    ```rust
+    fn add (a, b) {
+        a + b
+    };
+    add(1, 2)
+    ```
+- [x] Anonymous functions e.g.
+    ```rust
+    let add = fn (a, b) a + b;
+    ```
 - [x] Addition, multiplication, subtraction, division
-- [x] Comparisons, boolean operators e.g. `let is_true = (true and true) xor false;`
-- [x] If expressions e.g. `if bool_expr() { } else { };`
+- [x] Comparisons, boolean operators e.g.
+    ```rust
+    let is_true = (true and true) xor false;
+    ```
+- [x] If expressions e.g.
+    ```rust
+    let n = if bool_expr() { 1 } else { 2 };
+    ```
 - [x] Non-recursive (stack-based), higher performance interpreter.
-- [x] Symbols, as in JS. ("Reference capabilities" in the literature) e.g. `let [unique1, unique2] = [symbol(), symbol()]; unique1 != unique2`
+- [x] Booleans `true`, `false`
+- [x] Integers
+- [ ] Floats
+- [ ] Big Integers, with coercion on over/underflow
+- [x] Lists e.g.
+    ```rust
+    [1, 2, 3]
+    ```
+- [x] Objects e.g.
+    ```rust
+    { a: 1, b: 2, c: 3 }
+    ```
+- [ ] Strings
+- [x] Symbols, as in JS. ("Reference capabilities" in the literature) e.g.
+    ```rust
+    let [unique1, unique2] = [symbol(), symbol()];
+    unique1 != unique2
+    ```
 - [x] Effects (`send` / `handle` / `break [with <value>]` / `continue [with <value>]`)
 - [ ] Explicit effect propagation? e.g. `do` / `do [symbol]`
 - [x] Forever loops (`loop` / `break` / `break [with <value>]` / `continue`)
 - [ ] Foreach loops (`for <ident> in <generator>` / `break [with <value>]` / `continue [with <value>]`)
-- [x] Lists e.g. `[1, 2, 3]`
-- [x] Objects e.g. `{ a: 1, b: 2, c: 3 }`
-- [ ] Strings
 - [x] Intrinsics (language-defined functions)
 - [x] Mutable let bindings
 - [ ] Mutable assignment operators
@@ -114,15 +143,43 @@ even_numbers();
 - [ ] Import / export
 - [ ] Print
 - [x] Patterns
-    - [x] List spread operator e.g. `let abcde = ['a', ...bcd, 'e'];`
-    - [x] List destructuring in `let` e.g. `let [a, [b, c, d], e] = abcde;`
-    - [x] Destructure when receiving function parameters e.g. `fn (a, [b, c, d], e) { };`
-    - [x] Spread lists into function calls e.g. `do_alphabet('a', ...[b, c, d], 'e')`
-    - [x] Object spread operator e.g. `let thing = { name: 'Thing', ...other_attributes };`
-    - [x] Object destructuring in `let` e.g. `let { a, b } = { a: 1, b: 2 };`
-    - [x] Nested destructuring in `let` and function params e.g. `let [a, { b, c }, e] = [1, { b: 2, c: 3, d: 4}, 5];`
-    - [x] `import` pattern e.g. `let * = { a: 1, b: 2 }; a + 1 == b` 
-    - [ ] Renaming in object destructuring e.g. `let { a = x, b = y } = { x: 1, y: 2 };`
+    - [x] List spread operator e.g.
+        ```rust
+        let abcde = ['a', ...bcd, 'e'];
+        ```
+    - [x] List destructuring in `let` e.g.
+        ```rust
+        let [a, [b, c, d], e] = abcde;
+        ```
+    - [x] Destructure when receiving function parameters e.g.
+        ```rust
+        fn (a, [b, c, d], e) { };
+        ```
+    - [x] Spread lists into function calls e.g.
+        ```rust
+        do_alphabet('a', ...[b, c, d], 'e')
+        ```
+    - [x] Object spread operator e.g.
+        ```rust
+        let thing = { name: 'Thing', ...other_attributes };
+        ```
+        - [x] Object destructuring in `let` e.g.
+        ```rust
+        let { a, b } = { a: 1, b: 2 };
+        ```
+    - [x] Nested destructuring in `let` and function params e.g.
+        ```rust
+        let [a, { b, c }, e] = [1, { b: 2, c: 3, d: 4}, 5];
+        ```
+    - [x] `import` pattern e.g.
+        ```rust
+        let * = { a: 1, b: 2 };
+        a + 1 == b
+        ```
+    - [ ] Renaming in object destructuring e.g.
+        ```rust
+        let { a = x, b = y } = { x: 1, y: 2 };
+        ```
 - [ ] Proper error support for type errors.
 - [ ] Proper error support for syntax errors.
 - [x] Replace KalRef with Rc
@@ -130,7 +187,6 @@ even_numbers();
 - [ ] Remainder operator `%`
 - [ ] Integer Modulo operator `%%`
 - [ ] Exponent operator `**`
-- [ ] BigInts, and coercion on over/underflow
 - [ ] Numpy-style tensors using the `ndarray` crate
 - [ ] Floating point numbers
 - [ ] Markdown-like comments with `#` symbol
