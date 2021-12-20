@@ -4,7 +4,31 @@ use std::rc::Rc;
 
 grammar;
 
-// Macro for making comma-separated lists of anything
+//# Ignore patterns.
+//# - Ignore most whitespace (spaces, tabs, and most newlines)
+//# - Wse newlines to define the end of a comment.
+//# - Only ignore single hash comments # comment
+//# - Double hash comments are *not* ignored, they are stored.
+//# - Due to limitation of Lalrpop (until I write a custom lexer),
+//#     doc comments are only allowed in statement position.
+//# - Doc comments are stored in the metadata of the function they are inside.
+
+match {
+    r" +" => {},
+    r"\t+" => {},
+    r"\#\#[^\n]*\n" => DOC_COMMENT, //# capture everything between the ## and the \n as a doc comment
+} else {
+    r"\#(?:[^\#][^\n]*)?\n" => {}, //# ignore normal comments
+    r"\n" => {},
+    _
+}
+
+DocComment: String = {
+    <comment:DOC_COMMENT> => comment.to_owned(),
+}
+
+
+//# Macro for making comma-separated lists of anything
 Comma<T>: Vec<T> = {
     <v:(<T> ",")*> <e:T?> => match e {
         None => v,
@@ -24,40 +48,53 @@ Block: Rc<Block> = {
 	"{" <b:BlockInnerNotEmpty> "}" => b,
 };
 
-// kal files are "block inners".
-// Essentially they are zero parameter functions
-// We explicitly allow empty files.
+//# Kal files are "block inners". Essentially they are
+//#   zero parameter functions.
+//# We explicitly allow empty files. Normal blocks
+//#   can't be empty because that would be ambiguous
+//#   with empty objects.
 pub BlockInner: Rc<Block> = {
-    =>
+    <comments:(<DocComment>)*> =>
         Rc::new(Block {
             statements: Vec::new(),
             expression: None,
+            comments,
         }),
-    <expr:Expression> =>
-        Rc::new(Block {
-            statements: Vec::new(),
-            expression: Some(expr),
-        }),
-    <v:(<Statement> ";")+> <e:Expression?> =>
-        Rc::new(Block {
-            statements: v,
-            expression: e,
-        }),
+    <b:BlockInnerNotEmpty> => b,
 }
 
-// Blocks don't allow the block to be empty. This means that lone curly braces are empty objects instead.
-// However, an empty ast::Block *can* exist via an empty file
+//# Blocks don't allow the block to be empty. This
+//#   means that lone curly braces are empty objects
+//#   instead.
+//# However, an empty ast::Block *can* exist via
+//#   an empty file
 pub BlockInnerNotEmpty: Rc<Block> = {
-    <e:Expression> =>
+    <comments:(<DocComment>)*> <e:Expression> <comments2:(<DocComment>)*> => {
+        let (mut comments, mut comments2) = (comments, comments2);
+        comments.append(&mut comments2);
         Rc::new(Block {
             statements: Vec::new(),
             expression: Some(e),
-        }),
-    <v:(<Statement> ";")+> <e:Expression?> =>
+            comments,
+        })
+    },
+    <comments:(<DocComment>)*> <v:(<Statement> ";" <(DocComment)*>)+> <e:(<Expression> <(DocComment)*>)?> => {
+        let mut comments = comments;
+        let mut v = v;
+        let statements = v.into_iter().map(|(stat, mut comm)| {
+            comments.append(&mut comm);
+            stat
+        }).collect::<Vec<_>>();
+        let expression = e.map(|(expr, mut comm)| {
+            comments.append(&mut comm);
+            expr
+        });
         Rc::new(Block {
-            statements: v,
-            expression: e,
-        }),
+            statements,
+            expression,
+            comments,
+        })
+    },
 }
 
 Statement: Rc<dyn Statement> = {
@@ -67,8 +104,11 @@ Statement: Rc<dyn Statement> = {
     <e:Expression> => e.into_statement(),
 }
 
-// Function literal is highest operator precedence. Everything after fn () is considered part of the
-// function literal. Break, continue and send also capture all of the following expression.
+//# Function literal is highest operator
+//#   precedence. Everything after fn () is
+//#   considered part of the function literal.
+//#   Break, continue and send also capture all
+//#   of the following expression.
 Expression: Rc<dyn Expression> = {
     <function:Function> => function,
     <send:SendExpr> => send,
@@ -169,9 +209,9 @@ NormalExpression: Rc<dyn Expression> = {
 }
 
 SimpleExpression: Rc<dyn Expression> = {
-    // <continue_expr:ContinueLonely> => continue_expr,
-    // <send_expr:SendExprLonely> => send_expr,
-    // <break_expr:BreakLonely> => break_expr,
+    //# <continue_expr:ContinueLonely> => continue_expr,
+    //# <send_expr:SendExprLonely> => send_expr,
+    //# <break_expr:BreakLonely> => break_expr,
     <location:IdentLocation> => Rc::new(location),
     <location:DotLocation> => Rc::new(location),
     <location:IndexLocation> => Rc::new(location),
@@ -222,16 +262,16 @@ ListSubPattern: ListSubPattern = {
     "[" <l:ListPattern> "]" => ListSubPattern::List(Box::new(l)),
 }
 
-// ()
-// (a)
-// (a, )
-// (a, ...)
-// (...)
-// (..., )
-// (a, ..., b)
-// (a, ..., b, )
-// (..., b)
-// (..., b, )
+//# ()
+//# (a)
+//# (a, )
+//# (a, ...)
+//# (...)
+//# (..., )
+//# (a, ..., b)
+//# (a, ..., b, )
+//# (..., b)
+//# (..., b, )
 
 ListPattern: ListPattern = {
 
@@ -293,6 +333,7 @@ FunctionBody: Rc<Block> = {
         Rc::new(Block {
             statements: Vec::new(),
             expression: Some(e),
+            comments: Vec::new(),
         }),
     <b: Block> => b,
 }
@@ -369,7 +410,7 @@ Literal: Rc<dyn Expression> = {
     "true" => Rc::new(Bool(true)),
     "false" => Rc::new(Bool(false)),
     <n:Int> => Rc::new(Int(n)),
-    //<s:Str> => Literal::String(s),
+    //#<s:Str> => Literal::String(s),
     <l:List> => l,
     <o:Object> => o,
 }
@@ -403,7 +444,7 @@ Ident: String = {
 }
 
 Int: i64 = {
-    // `unwrap` todo convert to fallible operation (e.g. Int or TooLong)
+    //# `unwrap` todo convert to fallible operation (e.g. Int or TooLong)
     <i:r"0|(?:[1-9][_0-9]*)"> => {
         let string = i.to_string();
         let string = i.replace("_", "");
@@ -430,8 +471,11 @@ HandleMatch: HandleMatch = {
 }
 
 SendExpr: Rc<SendExpr> = {
-    // "with" is not just aesthetic here, it solves a grammar ambiguity.
-    // It might be solvable without "with", I didn't try very hard...
+    //# "with" is not *just* aesthetic here (although I don't mind
+    //#   it) - it solves a grammar ambiguity. It might be solvable 
+    //#   without "with". It would require having two expressions
+    //#   next to each other not be ambiguous. I didn't try very
+    //#   hard...
     "send" <symbol:Ident> <expr:("with" <Expression>)?> =>
         Rc::new(SendExpr {
             symbol,

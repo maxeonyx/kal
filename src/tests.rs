@@ -213,6 +213,8 @@ fn size_of_value() {
     assert_eq!(std::mem::size_of::<Value>(), 16);
 }
 
+test! { comments, Value::Int(3) }
+
 test! { loop_break, Value::Null }
 
 test! { loop_break_value, Value::Int(77) }

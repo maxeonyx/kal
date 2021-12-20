@@ -1,0 +1,16 @@
+# leading comment
+let x = 1;
+# comment in statement position
+	# space indented comment
+	# tab indented comment 
+let y = 2;
+## doc comment
+fn add(a, b) {
+	## doc comment in function
+	let sum = a + b; 
+	
+	# return a + b
+	sum
+};
+
+add(x, y)

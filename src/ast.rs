@@ -169,6 +169,7 @@ impl Statement for NamedFunction {}
 pub struct Block {
     pub statements: Vec<Rc<dyn Statement>>,
     pub expression: Option<Rc<dyn Expression>>,
+    pub comments: Vec<String>,
 }
 impl Expression for Block {}
 

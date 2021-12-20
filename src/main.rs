@@ -14,7 +14,7 @@ use interpreter::Interpreter;
 
 fn main() {
     let ast = kal_grammar::BlockInnerParser::new()
-        .parse(include_str!("../tests/pattern_let_list_nested.kal"))
+        .parse(include_str!("../tests/comments.kal"))
         .unwrap_or_else(|err| panic!("Failed to parse file, {:?}", err));
 
     let mut interpreter = Interpreter::new();
