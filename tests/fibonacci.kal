@@ -1,0 +1,3 @@
+let y_combinator = fn (f, a) f(f, a);
+let fibonacci = fn (n) y_combinator(fn (f, i, a, b) if i == 0 { a } else { f(f, i - 1, b, a + b) }, n, 0, 1);
+[fibonacci(0), fibonacci(1), fibonacci(2), fibonacci(3), fibonacci(4), fibonacci(5)] == [0, 1, 1, 2, 3, 5]
