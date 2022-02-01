@@ -1,0 +1,7 @@
+let a = {};
+//    a. assign only *new* properties into an object with let?
+// or b. allow overriding existing properties with let?
+// With variables, we allow shadowing, which is pretty much overriding, and it would be weird to not allow the same syntax for objects.
+let a.b = 5;
+let a.{ b, c } = { b: 6, c: 7 };
+a.b == 5
