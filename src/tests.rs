@@ -1,4 +1,4 @@
-use crate::interpreter::{Interpreter, Key, Value};
+use crate::interpreter::{Interpreter, Key, Value::{self, *}};
 use std::{collections::HashMap, rc::Rc};
 
 #[allow(dead_code)]
@@ -54,144 +54,155 @@ fn big_file() {
         .unwrap();
     let mut runtime = Interpreter::new();
     let val = runtime.eval(ast);
-    assert!(val == Value::Int(size));
+    assert!(val == Int(size));
 }
 
-test! { empty_file, Value::Null }
+test! { empty_file, Null }
 
-test! { let_expr_basic, Value::Int(42) }
+test! { let_expr_basic, Int(42) }
 
-test! { fn_add_one, Value::Int(6) }
+test! { fn_add_one, Int(6) }
 
-test! { fn_nameless, Value::Int(452) }
+test! { fn_nameless, Int(452) }
 
-test! { fn_nested, Value::Int(4) }
+test! { fn_nested, Int(4) }
 
-test! { fn_chained, Value::Int(23) }
+test! { fn_chained, Int(23) }
 
-test! { fn_object_empty, Value::Object(Rc::new(HashMap::new())) }
+test! { fn_object_empty, Object(Rc::new(HashMap::new())) }
 
 test! { fn_object, 
     {
         let mut obj = HashMap::new();
-        obj.insert(Key::Str("cat".to_owned()), Value::Int(1));
-        Value::Object(Rc::new(obj))
+        obj.insert(Key::Str("cat".to_owned()), Int(1));
+        Object(Rc::new(obj))
     } }
 
-test! { fn_null, Value::Null }
-test! { fn_named, Value::Bool(true) }
+test! { fn_null, Null }
+test! { fn_named, Bool(true) }
 
-test! { fn_multiple_statements, Value::Int(100) }
+test! { fn_multiple_statements, Int(100) }
 
-test! { fn_recursive_factorial, Value::Int(120) }
+test! { fn_recursive_factorial, Int(120) }
+test! { fibonacci, List(
+    Rc::new(vec![
+        Int(0),
+        Int(1),
+        Int(1),
+        Int(2),
+        Int(3),
+        Int(5),
+        Int(8),
+    ]))
+}
 
-test! { if_true, Value::Int(71) }
+test! { if_true, Int(71) }
 
-test! { if_false, Value::Int(72) }
+test! { if_false, Int(72) }
 
-test! { if_comparison, Value::Int(0) }
+test! { if_comparison, Int(0) }
 
-test! { if_else_if, Value::Int(77) }
+test! { if_else_if, Int(77) }
 
-test! { if_without_else, Value::Null }
+test! { if_without_else, Null }
 
-test! { comparison_true, Value::Bool(true) }
+test! { comparison_true, Bool(true) }
 
-test! { comparison_false, Value::Bool(false) }
+test! { comparison_false, Bool(false) }
 
-test! { release_mode_only, big_recursive, Value::Int(1_000_000) }
+test! { release_mode_only, big_recursive, Int(1_000_000) }
 
-test! { object_empty, Value::Object(Rc::new(HashMap::new())) }
+test! { object_empty, Object(Rc::new(HashMap::new())) }
 
 test! { object_simple,
     {
         let mut obj = HashMap::new();
-        obj.insert(Key::Str("cat".to_owned()), Value::Int(1));
-        Value::Object(Rc::new(obj))
+        obj.insert(Key::Str("cat".to_owned()), Int(1));
+        Object(Rc::new(obj))
     }
 }
 
-test! { object_access, Value::Int(2) }
+test! { object_access, Int(2) }
 
-test! { object_access_expression, Value::Int(251) }
+test! { object_access_expression, Int(251) }
 
-test! { object_access_fn, Value::Int(491) }
+test! { object_access_fn, Int(491) }
 
-test! { object_nested, Value::Int(22) }
+test! { object_nested, Int(22) }
 
-test! { object_spread, Value::List(Rc::new(vec![Value::Int(15), Value::Int(20), Value::Int(99)])) }
+test! { object_spread, List(Rc::new(vec![Int(15), Int(20), Int(99)])) }
 
-test! { boolean_and, Value::Bool(false) }
+test! { boolean_and, Bool(false) }
 
-test! { boolean_or, Value::Bool(true) }
+test! { boolean_or, Bool(true) }
 
-test! { boolean_xor, Value::Bool(true) }
+test! { boolean_xor, Bool(true) }
 
-test! { boolean_precedence, Value::Bool(true) }
+test! { boolean_precedence, Bool(true) }
 
-test! { symbol, Value::Symbol(0) } // first symbol is always 0
+test! { symbol, Symbol(0) } // first symbol is always 0
 
-test! { symbol_as_value, Value::Symbol(1) } // second symbol is always 1
+test! { symbol_as_value, Symbol(1) } // second symbol is always 1
 
-test! { symbol_equality, Value::Bool(true) }
+test! { symbol_equality, Bool(true) }
 
-test! { trailing_commas, Value::Int(2) }
+test! { trailing_commas, Int(2) }
 
-test! { list, Value::List(Rc::new(vec![Value::Int(1), Value::Int(2), Value::Int(3)])) }
+test! { list, List(Rc::new(vec![Int(1), Int(2), Int(3)])) }
 
-test! { list_index, Value::Int(29) }
+test! { list_index, Int(29) }
 
-test! { list_index_expression, Value::Int(32) }
+test! { list_index_expression, Int(32) }
 
-test! { list_negative_index, Value::Int(53) }
+test! { list_negative_index, Int(53) }
 
-test! { list_spread, Value::List(Rc::new(vec![Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4), Value::Int(5), Value::Int(6)])) }
+test! { list_spread, List(Rc::new(vec![Int(1), Int(2), Int(3), Int(4), Int(5), Int(6)])) }
 
-test! { int, Value::Int(5) }
+test! { int, Int(5) }
 
-test! { int_negative, Value::Int(-5) }
+test! { int_negative, Int(-5) }
 
-test! { num_addition, Value::Int(8) }
+test! { num_addition, Int(8) }
 
-test! { num_subtraction, Value::Int(-2) }
+test! { num_subtraction, Int(-2) }
 
-test! { num_multiplication, Value::Int(15) }
+test! { num_multiplication, Int(15) }
 
-test! { num_negative_subtraction, Value::Int(14) }
+test! { num_negative_subtraction, Int(14) }
 
-test! { num_division, Value::Int(2) }
+test! { num_division, Int(2) }
 
-test! { mut_num, Value::Int(2) }
+test! { mut_num, Int(2) }
 
-test! { mut_multi, Value::Int(111) }
+test! { mut_multi, Int(111) }
 
-test! { mut_multi_let, Value::Int(999) }
+test! { mut_multi_let, Int(999) }
 
-test! { mut_increment, Value::Int(61) }
+test! { mut_increment, Int(61) }
 
-test! { mut_list_index, Value::Int(99) }
+test! { mut_list_index, Int(99) }
 
-test! { mut_object_access, Value::Bool(true) }
+test! { mut_object_access, Bool(true) }
 
-test! { mut_deep, Value::Int(3) }
+test! { mut_deep, Int(3) }
 
-test! { handle_continue, Value::Int(9) }
+test! { handle_continue, Int(9) }
 
-test! { handle_multiple_continue, Value::Int(81) }
+test! { handle_multiple_continue, Int(81) }
 
-test! { handle_no_continue, Value::Int(3) }
+test! { handle_no_continue, Int(3) }
 
-test! { handle_nested, Value::Int(55) }
+test! { handle_nested, Int(55) }
 
-test! { handle_nested_continue, Value::Int(20) }
+test! { handle_nested_continue, Int(20) }
 
-test! { handle_two_effect_types, Value::Int(25) }
+test! { handle_two_effect_types, Int(25) }
 
 #[test]
 fn handle_implicit() {
     let val = eval_file("tests/handle_implicit.kal");
     match val {
-        Value::Effect(effect) => assert!(effect.value == Value::Int(4)),
+        Effect(effect) => assert!(effect.value == Int(4)),
         _ => panic!("Expected an effect value, got something else."),
     }
 }
@@ -200,7 +211,7 @@ fn handle_implicit() {
 fn handle_empty() {
     let val = eval_file("tests/handle_empty.kal");
     match val {
-        Value::Effect(effect) => assert!(effect.value == Value::Bool(true)),
+        Effect(effect) => assert!(effect.value == Bool(true)),
         _ => panic!("Expected an effect value, got something else."),
     }
 }
@@ -213,36 +224,37 @@ fn size_of_value() {
     assert_eq!(std::mem::size_of::<Value>(), 16);
 }
 
-test! { comments, Value::Int(3) }
+test! { comments, Int(3) }
 
-test! { loop_break, Value::Null }
+test! { loop_break, Null }
 
-test! { loop_break_value, Value::Int(77) }
+test! { loop_break_value, Int(77) }
 
-test! { loop_yield, Value::Int(8) }
+test! { loop_yield, Int(8) }
 
-test! { loop_continue, Value::Int(5) }
+test! { loop_continue, Int(5) }
 
-test! { loop_collect, Value::List(Rc::new(vec![Value::Int(0), Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4)])) }
+test! { loop_collect, List(Rc::new(vec![Int(0), Int(1), Int(2), Int(3), Int(4)])) }
 
-test! { expression_as_statement, Value::Int(2) }
+test! { expression_as_statement, Int(2) }
 
 
-test! { pattern_fn_spread_last, Value::Bool(true) }
-test! { pattern_fn_spread_nameless, Value::Bool(true) }
-test! { pattern_fn_spread_only, Value::Bool(true) }
-test! { pattern_fn_spread_spread_both, Value::Bool(true) }
-test! { pattern_let_list_spread_nameless_only, Value::Null }
-test! { pattern_let_list_spread_nameless, Value::Bool(true) }
-test! { pattern_let_list_spread, Value::Bool(true) }
-test! { pattern_let_list, Value::Bool(true) }
-test! { pattern_let_list_nested, Value::Bool(true) }
+test! { pattern_fn_spread_last, Bool(true) }
+test! { pattern_fn_spread_nameless, Bool(true) }
+test! { pattern_fn_spread_only, Bool(true) }
+test! { pattern_fn_spread_spread_both, Bool(true) }
+test! { pattern_let_list_spread_nameless_only, Null }
+test! { pattern_let_list_spread_nameless, Bool(true) }
+test! { pattern_let_list_spread, Bool(true) }
+test! { pattern_let_list, Bool(true) }
+test! { pattern_let_list_nested, Bool(true) }
 test_error! { pattern_let_list_spread_too_many }
 test_error! { pattern_let_list_spread_not_enough }
 test_error! { pattern_let_list_spread_not_enough_spread }
-test! { pattern_let_list_empty, Value::Null }
-test! { pattern_let_object, Value::Bool(true) }
-test! { pattern_let_object_spread_nameless, Value::Bool(true) }
-test! { pattern_let_object_spread_nameless_only, Value::Null }
-test! { pattern_let_object_nested, Value::Bool(true) }
-test! { pattern_let_object_wildcard, Value::Bool(true) }
+test! { pattern_let_list_empty, Null }
+test! { pattern_let_object, Bool(true) }
+test! { pattern_let_object_property, Bool(true) }
+test! { pattern_let_object_spread_nameless, Bool(true) }
+test! { pattern_let_object_spread_nameless_only, Null }
+test! { pattern_let_object_nested, Bool(true) }
+test! { pattern_let_object_wildcard, Bool(true) }

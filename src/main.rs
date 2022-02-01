@@ -14,7 +14,7 @@ use interpreter::Interpreter;
 
 fn main() {
     let ast = kal_grammar::BlockInnerParser::new()
-        .parse(include_str!("../tests/comments.kal"))
+        .parse(include_str!("../tests/fibonacci.kal"))
         .unwrap_or_else(|err| panic!("Failed to parse file, {:?}", err));
 
     let mut interpreter = Interpreter::new();
