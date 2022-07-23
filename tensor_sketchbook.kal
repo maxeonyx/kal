@@ -1,0 +1,62 @@
+
+fn image_stuff() {
+	# dim() creates a unique object with an optional size property
+
+	let H = dim(); # any size dim, but means "one particular size" |H|
+	let W = dim();
+	let C = dim(3); # "statically" known size.
+
+
+	#         | B1 "dim" variable gets created here
+	#         v
+	let img1[B1=5, H, W, C] <- 0; # <- is "parallel/broadcast/tensor/array assign"
+
+	let img1[H, W1=(B1, W), C] <- img[B1, H, W, C];
+	#                ^
+	#                | einops-like rearrange (done inside indexing?)
+
+	#         | B2 gets created here
+	#         v
+	let img2[B2=4, H, W, C] <- random([0, 1]);
+	let img2[H, W2=(B2, W), C] <- img2[B, H, W, C]);
+
+	# einops concat/stack extension
+	let all_img[H, W1+W2, C] <- img[H, W1, C], img2[H, W2, C];
+	
+	send display(all_img);
+
+}
+
+
+# transformer attention with Q-per-head but single K and V. Allows
+# faster inference - speeds up significantly.
+fn multi_query_attention(x: f32[...B, Seq, D]): f32[...B, Seq, D] {
+	
+	# create dims (private to this function) that will be shared across multiple vars
+	# Dims created within a function can't be in the type of the return value of the function.
+	# They have to be created outside the function.
+	let KQ = dim();
+	let V = dim();
+	let H = dim();
+
+	let wq[D, H, QK] <- send get_variable();
+	let wk[D, QK] <- send get_variable();
+	let wv[D, V] <- send get_variable();
+	let wo[H, V, D] <- send get_variable();
+	
+	# einops-like "contraction"
+	let q[B, Seq, H, QK] <- x[B, Seq, D], wq[D, H, QK];
+	let k[B, Seq, QK] <- x[B, Seq, D], wk[D, QK];
+	let v_in[B, Seq, V] <- x[B, Seq, D], wv[D, V];
+
+	let attn_logits[B, Seq, Seq, H] <- q[B, Seq, H, QK], k[B, Seq, QK];
+	let attn_weights = softmax(attn_logits);
+	
+	let v[B, Seq, H, V] <- attn_weights[B, Seq, Seq, H], v_in[B, V];
+	
+	let v_out[B, Seq, D] <- v[B, Seq, H, V], wo[H, V, D];
+	
+	v_out
+	
+}
+
