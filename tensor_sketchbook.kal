@@ -1,4 +1,6 @@
 
+# More inspiration: https://github.com/mcabbott/Tullio.jl
+
 fn image_stuff() {
 	# dim() creates a unique object with an optional size property
 
