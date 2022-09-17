@@ -1,0 +1,10 @@
+
+## Multistage function. Type parameters can only depend on variables in the previous stage.
+fn random_chunk
+    (K: int):
+    (N: int.at_least(K)):
+    (x: int[N]): int[K]
+{
+    let i = random_range(0, N-K);
+    x[i:i+K]
+};
