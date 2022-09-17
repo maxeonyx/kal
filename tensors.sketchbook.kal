@@ -29,6 +29,28 @@ fn image_stuff() {
 
 }
 
+fn cartesian_product(x: i64[R][N]): i64[length, R] {
+	
+	let length <- prod(N);
+	return list(cartesian_product_helper(x, 0))
+}
+
+fn then_append(iter, el) {
+	## Adds a single element to the end of an iterator.
+	for i in iter {
+		send yield i;
+	};
+	send yield el;
+}
+
+fn cartesian_product_helper(x: i64[R][N]): i64[prod(N), R] {
+	if R == 1 {
+		x[0][N, 1]
+	} else {
+		flat_map(cartesian_product_helper(x[1:]), fn (x) then_append(x, el))
+	}
+}
+
 # dims in the type signature of a function must be declared before the definition of that function.
 let B = dim();
 let Seq = dim();
