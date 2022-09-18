@@ -8,3 +8,25 @@ fn random_chunk
     let i = random_range(0, N-K);
     x[i:i+K]
 };
+
+# alt syntax?
+fn random_chunk(
+    @compile K: int,
+    @shape N: int.at_least(K),
+    x: int[N],
+): int[K]
+{
+    let i = random_range(0, N-K);
+    x[i:i+K]
+};
+
+# or
+fn random_chunk(
+    K: int,
+    @shape N: int.at_least(K),
+    @run x: int[N],
+): int[K]
+{
+    let i = random_range(0, N-K);
+    x[i:i+K]
+};
