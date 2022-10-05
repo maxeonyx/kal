@@ -1,31 +1,37 @@
 
 ## Multistage function. Type parameters can only depend on variables in the previous stage.
+
+## Random chunk. Take a chunk of size `chunk_size` from a 1-D tensor of size `tensor_size`.
+## The tensor must be at least `chunk_size` in size.
+
 fn random_chunk
-    (K: int):
-    (N: int.at_least(K)):
-    (x: int[N]): int[K]
+(
+    chunk_size: int >= 1,
+    @run x: int[N: dim >= chunk_size],
+): int[chunk_size]
 {
-    let i = random_range(0, N-K);
-    x[i:i+K]
+    let i = random_range(0, N-chunk_size);
+    x[i:i+chunk_size]
 };
 
-# alt syntax?
-fn random_chunk(
-    @compile K: int,
-    @shape N: int.at_least(K),
-    x: int[N],
-): int[K]
-{
-    let i = random_range(0, N-K);
-    x[i:i+K]
-};
-
-# or
-fn random_chunk(
-    K: int,
-    @shape N: int.at_least(K),
-    @run x: int[N],
-): int[K]
+## long form syntax
+## shows explicit multi stage with names
+## tensor shape passed explicitly
+let at_least_1_type = int.at_least(1);
+fn random_chunk
+    @compile(chunk_size: at_least_1_type)
+    {
+        # dim is the type used for tensor dimensions
+        # it works like an int, but can only be used to
+        # index a specific dimension of a tensor
+        let shape_bound = dim.at_least(chunk_size);
+    }
+    @shape(N: shape_bound)
+    {
+        let x_type = int.array_of_shape(N);
+        let return_type = int.array_of_shape(chunk_size);
+    }
+    @run(x: x_type): return_type
 {
     let i = random_range(0, N-K);
     x[i:i+K]

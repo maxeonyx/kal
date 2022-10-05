@@ -3,6 +3,11 @@
 
 fn image_stuff() {
 	# dim() creates a unique object with an optional size property
+	# they cannot be used in place of each other, but you can
+	# compare them e.g. `dim(3) == dim(3)` and `dim(3) < dim(4)`
+	# and do maths with them `let N = dim(3); let M = N + 4;` etc.
+	# N and M are unique and can't be used in place of each other.
+	# The size property acts as a bound on allowable indexing.
 
 	let H = dim(); # any size dim, but means "one particular size" |H|
 	let W = dim();
@@ -59,12 +64,12 @@ let D = dim();
 # Types of dim:
 #      dim() : Ordinary dim. Stands in for some concrete value which can be any non-negative integer.
 #      dim(5) : Ordinary dim, already initialized to a value.
-#      dim(min=1) : Lower-bounded dim. Allows operations that require some data to operate on.
-#      dim(min=4) : As above, but probably more rarely used??
-# (??) dim(max=10) : Upper-bounded dim.
-# 					 Not sure why this would be neccesary?
+#      dim(allow_0=true) : Disable default lower bound of 1. Allows operations that don't require any
+#                          data. Slicing and indexing with integers are disabled.
+#      dim(min=4) : Lower-bounded dim. Doesn't specify size of the dim but allows slicing and indexing.
+# (??) dim(max=10) : Upper-bounded dim. Not sure why this would be neccesary?
 #      dim.product(dim(), dim(), ...) : A dim that represents the cartesian product / flattening of N other dims.
-# 										Order-sensitive due to array packing.
+# 								   (??) Order-sensitive due to array packing.
 #      dim.sum(dim(), dim(), ...) : A dim that represents the concatenation of N other dims.
 # 									Order-sensitive due to packing order.
 # (??) dim.list(dim()) : A list of dims. (for use like ...D )

@@ -1,0 +1,90 @@
+
+# basic for loop. works like in other languages. looks the same too
+let mut sum = 0;
+for i in range(5) {
+    sum += i;
+}
+print(sum); # prints 10
+
+# generator functions send `yield` events which are captured by for loops
+fn some_primes() {
+    send yield 2;
+    send yield 3;
+    send yield 5;
+    send yield 7;
+}
+let mut sum = 0;
+for prime in some_primes() {
+    sum += prime;
+}
+print(sum); # prints 17
+
+# we can also *return* values from for loops as well as yield
+# this lets us assign the for loop to a variable
+fn some_primes() {
+    send yield 2;
+    send yield 3;
+    send yield 5;
+    send yield 7;
+    return 4; # the number of things we yielded
+}
+let mut sum = 0;
+let num_primes = for prime in some_primes() {
+    sum += prime;
+}
+print(sum); # prints 17
+print(num_primes); # prints 4
+
+
+# if we leave off the semicolon at the end of the for loop, we can
+# automatically `yield from` like in python
+fn some_primes() {
+    send yield 2;
+    send yield 3;
+    send yield 5;
+    send yield 7;
+}
+fn primes_times_2() {
+    for prime in some_primes() {
+        prime * 2 # no semicolon here - equivalent to `send yield prime * 2;`
+    }
+    # note also that this function returns whatever some_primes() returns, because of
+    # the implicit `return`. We could also explicitly return something else if we want, or
+    # not return anything at all, by adding a semicolon after the closing brace.
+}
+
+# we can use for loops as expressions similar to python list comprehensions
+# this captures the `yields` into the list, and ignores the return value
+let primes = [p for p in primes_times_2()];
+
+# I also want to add `map` syntax as well as `for` syntax, which doesn't support generator
+# functions (because those maintain state), but does support parallelism
+# maps must be used either within a list comprehension or in another map expression
+let even_numbers = [i * 2 map i in range(5)]
+print(even_numbers); # prints [0, 2, 4, 6, 8]
+
+
+
+# we can always use a for loop instead of a map
+let even_numbers = [i * 2 for i in range(5)];
+print(even_numbers); # prints [0, 2, 4, 6, 8]
+
+# but not the other way around
+let primes = [p map p in primes_times_2()]; # error - can't map over a generator function
+
+
+# but we can make map functions instead of generator functions
+
+fn some_primes() {
+    map {
+        2;
+        3;
+        5;
+        7;
+    }
+}
+fn primes_times_2() {
+    map p in some_primes() {
+        p * 2
+    }
+}
