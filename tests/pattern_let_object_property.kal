@@ -1,7 +1,8 @@
 let a = {};
-//    a. assign only *new* properties into an object with let?
-// or b. allow overriding existing properties with let?
-// With variables, we allow shadowing, which is pretty much overriding, and it would be weird to not allow the same syntax for objects.
+# Options:
+#    1. assign only *new* properties into an object with let?
+# or 2. allow overriding existing properties with let?
+# With variables, we allow shadowing, which is pretty much overriding, and it would be weird to not allow the same syntax for objects.
 let a.b = 5;
 let a.{ c, d } = { c: 6, d: 7 };
 [a.b, a.c, a.d] == [5, 6, 7]
