@@ -6,6 +6,7 @@ edition = "2021"
 build = "build.rs" # LALRPOP preprocessing
 
 [dependencies]
+clap = { version = "4.4.3", features = ["derive"] }
 lalrpop-util = { version = "0.19.6", features = ["lexer"] }
 regex = "0.2.0"
 
