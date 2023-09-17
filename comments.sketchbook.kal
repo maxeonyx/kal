@@ -56,9 +56,6 @@ let text = help(fn_with_comment, "markdown");
 # convert to html
 let text = help(fn_with_comment, "html");
 
-
-
-
 ##*
 Another Idea: Comment heading levels depend on the depth of the object structure!
 
@@ -66,11 +63,11 @@ e.g.
 ```
 {
     ## Should the heading be automatically put *above* any other plain doc comments like this preceding it?
-    
+
     ### Object name *heading*
-    
+
     ## Object doc comment is attached to the object. If this was returned from a file, it would be a module object.
-    
+
     fibonacci: fn () {
         ### Dumb Fibonacci
         ## Just returns the first two numbers because I'm lazy

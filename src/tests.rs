@@ -226,6 +226,9 @@ fn size_of_value() {
 }
 
 test! { comments, Int(3) }
+test! { comments_doc, Int(3) }
+test! { comments_doc_whitespace_header, Bool(true) }
+test! { comments_doc_whitespace_description, List(Rc::new(vec![Bool(true), Bool(true), Bool(true)])) }
 
 test! { loop_break, Null }
 

@@ -1,0 +1,24 @@
+### File (function) header
+## File (function) description
+
+# not a doc comment
+# subsequent # should be ignored
+
+## Appended to file description
+    ## ...also appended
+
+let x = 1;
+
+let y = 2;
+
+## ...also appended
+fn add(a, b) {
+	### Function header for fn add(a, b)
+	## Function description for fn add(a, b)
+	let sum = a + b;
+
+	## Doc comment: Returns a + b
+	sum
+};
+
+add(x, y)

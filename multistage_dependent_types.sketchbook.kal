@@ -1,8 +1,6 @@
-
-## Multistage function. Type parameters can only depend on variables in the previous stage.
-
-## Random chunk. Take a chunk of size `chunk_size` from a 1-D tensor of size `tensor_size`.
-## The tensor must be at least `chunk_size` in size.
+##*# Multistage functions.
+Type parameters can only depend on variables in the previous stage.
+*##
 
 fn random_chunk
 (
@@ -10,6 +8,11 @@ fn random_chunk
     @run x: int[N: dim >= chunk_size],
 ): int[chunk_size]
 {
+    ##*# Random chunk.
+    Take a chunk of size `chunk_size` from a 1-D tensor of size `tensor_size`.
+    The tensor must be at least `chunk_size` in size.
+    *##
+
     let i = random_range(0, N-chunk_size);
     x[i:i+chunk_size]
 };

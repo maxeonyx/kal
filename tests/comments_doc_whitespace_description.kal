@@ -1,0 +1,22 @@
+### Whitespace tests
+## These tests demonstrate the behaviour of whitespace stripping in doc comments.
+
+let { doc } = import symbols;
+
+fn f_1() {
+	## Description
+};
+
+fn f_2() {
+	##Description
+}
+
+fn f_3() {
+	##    Description
+};
+
+[
+	f_1[doc].description == "Description",
+	f_2[doc].description == "Description",
+	f_3[doc].description == "   Description",
+]
