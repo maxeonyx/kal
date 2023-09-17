@@ -71,7 +71,7 @@ test! { fn_chained, Int(23) }
 
 test! { fn_object_empty, Object(Rc::new(HashMap::new())) }
 
-test! { fn_object, 
+test! { fn_object,
     {
         let mut obj = HashMap::new();
         obj.insert(Key::Str("cat".to_owned()), Int(1));
@@ -109,6 +109,7 @@ test! { if_without_else, Null }
 test! { comparison_true, Bool(true) }
 
 test! { comparison_false, Bool(false) }
+test! { equality_chaining, List(Rc::new(vec![Bool(true), Bool(true), Bool(true), Bool(true), Bool(true), Bool(true)])) }
 
 test! { release_mode_only, big_recursive, Int(1_000_000) }
 
