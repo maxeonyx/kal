@@ -1,0 +1,55 @@
+##*
+
+# Types
+
+The dynamic language works via the built-in "variant" enum:
+
+- int
+- bigint (auto overflow into bignum like python when allocations are non-strict)
+- index
+- str
+- float
+- decimal (precision preserving infinite size number)
+- bool
+- function
+- table
+- datetime types (actually a large set of types)
+  - moment (internally a UTC timestamp)
+  - period (internally two UTC timestamps)
+  - naivedate
+  - naivetime
+  - naivedatetime
+  - naivetimerange
+  - naivedaterange
+  - naivecronspec
+- + compile Kal with additional custom types
+
+### Tables:
+## Arrays:
+let x = [ 1, 2, 3 ];
+assert x is Table
+assert x is Array # (as it has *only* contiguous keys)
+assert x is Array[int] # (as it has only integer values)
+assert x is Table[int, int] # (all Array[X] are Table[int, X])
+## Maps:
+let y = [ "a": 10, "b": 20 ];
+assert y is Table
+assert y is Table[str, int] # (as it has only string keys and int values)
+assert y is not Array
+## Combined!
+let z = [ 1, 2, 3, "a": 10, "b": 20 ];
+assert z is Table
+assert z is Table[str|int, int]
+assert z is not Array # (as it does not have solely contiguous integer keys
+
+### `int` vs. `index`
+## We recognize that off-by-one errors are caused largely by mixing numbers that refer to positions (integers) and numbers that refer to ranges (indices). Explained in the diagram below:
+##   indices:   -2    -1     1     2
+## integers: -2  | -1  |  0  |  1  |  2
+##            ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓
+##           ─┬─────┬─────┬─────┬─────┬─
+##        ... │  Y  │  Z  │  A  │  B  │ ...
+##           ─┴─────┴─────┴─────┴─────┴─
+## Index types address a cell, which do not naturally have a 0 value, whereas integer types address cell *boundaries* and so do have a 0 value.
+## This is also analogous to dates and timespecs, deltas vs absolutes.
+
