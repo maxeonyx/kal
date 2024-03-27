@@ -81,7 +81,7 @@ let D = dim();
 # transformer attention with Q-per-head but single K and V. Allows
 # faster inference - speeds up significantly.
 #                                              | Denotes that we are using a variable as an argument name,
-# 											   | which means it is guaranteed unique, and can have the type
+#                                              | which means it is guaranteed unique, and can have the type
 #                                              | already specified. "shape" is a built-in variable and function,
 #                                              | which is implicitly passed in ein assign statements.
 #                                              v  
