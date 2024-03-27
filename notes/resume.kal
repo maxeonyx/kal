@@ -1,0 +1,15 @@
+##*
+
+Different forms of yield + resumption.
+
+*##
+
+# User defined syntax
+let result: TResume = send object;
+...
+f(args) handle x {
+  x is TYield {
+    resume(thingy)
+  }
+  # default: don't handle? Type error for unhandled effects to reach the root?
+}
