@@ -36,3 +36,25 @@ fn random_chunk
     let i = random_range(0, N-K);
     x[i:i+K]
 };
+
+
+
+### Second idea.
+## Multistage function - the body is split into sections, each implicitly returning a function, but with attributes for everything up to that point (a "namespace" object). This can then be called, but might have additional parameters - essentially resumption. We can also do the same with modules themselves, as they are just functions!
+fn webserver(endpoints: list[Endpoint])
+{
+    # Call configure phase of endpoints. Each could be a module or function.
+    let endpoints = [endpoint() for endpoint in endpoints];
+    let build_router = prebuild_router(endpoints);
+
+    @startup(store: Store)
+    # Call startup phase of endpoints
+    let endpoints = [endpoint(store) for endpoint in endpoints];
+    let router = build_router(endpoints);
+        
+    @handle(request: Request)
+
+    # This will call handle phase of endpoints for us.
+    router.route(request)
+
+}
