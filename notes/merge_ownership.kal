@@ -1,0 +1,16 @@
+##*
+
+## Shared ownership
+
+In Rust we have Rc, Arc etc. for shared ownership. These share responsibility of dropping the value, and also allow mutation using interior mutability. However, they are by default limited to synchronous mutation using mutexes. I would like to create a system of CRDT-like mergable data structures, where shared ownership is for both asynchronous mutation as well as responsibility for cleanup.
+
+Such a data structure needs to be created with "merge" semantics, where mutations are deterministic and ideally commutative.
+
+A transation Tx is an operation Op at time T in location Lx.
+- If the transitive dependents are least commutative, it will be applied at time T@Lx.
+- If the transitive dependents are at least optimistic, it will be applied at time T@Lx but some parts might be re-applied.
+- If the transitive dependents are at least synchronous, it will only be applied at time T'' > T'@L* > T@Lx (a time which is greater than T at all locations)
+
+Ok, seems like it needs to be a whole dataflow system again.
+
+*##
