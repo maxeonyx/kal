@@ -1,0 +1,35 @@
+##*
+
+##  Multi-return & "keyword only return"
+
+In rust and other languages we have pattern matching which allows destructuring of a returned object or struct.
+
+I would also like a construct that *requires* destructuring, the same as function arguments.
+
+# a & b must be named as in python.
+```
+fn f(*, a, b) -> . { # infer return type.
+    { a, b }  # implicitly named struct fields. Non-anonymous type - `f::Ret`.
+}
+```
+
+We can assign the struct
+```
+let s = f(a=3, b=4);
+```
+or can assign a and b:
+```
+let { a, b } = f(a=3, b=4);
+```
+
+# Here, we cannot assign the struct - it must be de-structured.
+
+fn f(a, b) { # unnameable return type.
+  { a, b }
+}
+
+# error:
+let s = f(1, 2);
+# allowed:
+let { a, b } = f(1, 2);
+*#
