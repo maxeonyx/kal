@@ -13,3 +13,68 @@ f(args) handle x {
   }
   # default: don't handle? Type error for unhandled effects to reach the root?
 }
+
+
+let err = fn () {
+  # First question:
+  # This is a compound expression, invalid at multiple levels.
+  # The inner expression will TypeError, and will get caught by
+  # the handler. However, an attempt to resume will error *again*.
+  # What exactly should the "resume" do?
+  # 1.  Put a new value in place of the value that had the wrong type.
+  # 2.  Put a new value in place of the inner expression?
+  # 3.  Put a new value in place of the outer expression? (I think this
+  #     doesn't really make sense.)
+  #
+  # If we choose 2., do we discard the result of an unevaluated side of the expression?
+  # If we were a pure language, that would be fine, but we could be sending effects from
+  # that branch.
+  # I guess we need to fully evaluate both sides before checking the type. That's fine.
+  ("asdf" * ("asdf" * (0.1 * 1.0)))
+}
+
+handle err() {
+  error {
+    resume 0.5;
+    # ...?
+
+    # Second question:
+    # What happens here? We get a second error after we
+    # resume. Should:
+    # 1.  this handler be re-entered? (and resume again with 0.5)
+    # 2.  the error be "thrown" into this handler's context, and
+    #     then if not subsequently handled, outside of this handler.
+    # 3.  this handler continue? (and if so, how do we know to
+    #     come back into this handler?
+
+  }
+}
+
+
+# which behaviour we choose also impacts the de-sugar of the for loop:
+
+# 1.
+handle iterator() {
+  yield x {
+    let result = body(x);
+    resume result;
+  }
+}
+
+# 2.
+let result
+while true {
+  handle iterator() {
+    yield x {
+      let result = body(x);
+      resume result;
+    }
+  }
+}
+
+# 3. (wack)
+handle iterator() {
+  yield x {
+    while true { # ???
+      result = body(x)
+      resume result;
