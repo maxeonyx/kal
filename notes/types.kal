@@ -53,3 +53,15 @@ assert z is not Array # (as it does not have solely contiguous integer keys
 ## Index types address a cell, which do not naturally have a 0 value, whereas integer types address cell *boundaries* and so do have a 0 value.
 ## This is also analogous to dates and timespecs, deltas vs absolutes.
 
+### `__type__`
+
+Let's imagine we have a symbol called `__type__`.
+
+This is a property of an object, or an "aspect" of a variable, that is used in type checking. When a stage A runs, it should leave all residual values with `Type` values in their `__type__` attribute. The type checker is then charge of ensuring that all of the values of the program's `__type__` are compatible with each other.
+
+Anything without a `__type__`, we can attempt to infer. This is then done via "running" a function in "type mode". In this mode, we change the semantics of branching, loops and recursion, and functions have a derived (or explicit) mapping from their input's `__type__` to their output's `__type__`.
+
+Q: is a type attached to a value or a place?
+Q: is a "shape" or "structure" attached to a type or a place?
+Maybe: an X (value or place) can have many types, but only one structure.
+Actually, a place has a size and a value has types and a structure.
