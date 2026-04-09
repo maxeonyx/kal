@@ -213,7 +213,7 @@ executable therefore has very few runtime dependencies like a normal rust binary
 As a programing language that requires the use of effects for interacting with the outside world, Kal is well-suited for targeting
 Webassembly. Webassembly runtimes provide no capabilities by default, but programs written in many languages assume use
 of a filesystem, clock or other resources. Kal programs can be run in these environments, and even if they expect side-effects to
-suceed, these can be mocked by the runtim or calling Kal code.
+succeed, these can be mocked by the runtime or calling Kal code.
 
 So my wishlist is as follows:
 - Gradual typing
